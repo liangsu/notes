@@ -1,0 +1,6 @@
+1. 响应时间权重的负载均衡算法是否有问题：com.netflix.loadbalancer.WeightedResponseTimeRule
+权重计算逻辑的结果是：响应时间大的服务的权重有可能大于响应时间小的权重
+
+
+
+org.springframework.aop.framework.ProxyFactory

@@ -1,0 +1,24 @@
+windows -> Preference -> textEditor
+
+背景色：
+色调：85。饱和度：120。亮度：208 
+
+设置文字颜色：
+windows -> Preference -> java -> editor -> syntax Coloring
+
+1、注释 Annotations : 107 147 186 浅蓝色
+2、符号 Brackets : 255 128 0 橙色
+3、类名 Classes : 0 80 50 加粗 深绿色
+4、常量 Constant : 202 0 202 加粗 玫瑰红
+5、弃用的成员 Deprecated members : 123 23 43 中划线 加粗 咖啡色
+6、枚举 Enums : 128 0 255 紫色
+7、变量 Fields : 128 0 128 深紫色
+8、return关键字 Keyword 'return' : 255 0 85  红色 加粗
+9、其他关键字 Keyword excluding 'return' : 207 46 125 玫瑰红 加粗
+10、方法定义 Method declarations : 255 128 64 橙色加粗
+11、方法 Methods ： 0 48 96 深蓝
+12、数字 Numbers ：42 0 255 蓝色
+13、运算符 Operators : 255 128 0 橙色
+14、其他 Others ：78 123 0  绿色
+15、静态变量 Static fields : 33 0 189 蓝色 加粗
+16、字符串 Strings :  132 26 138 紫色

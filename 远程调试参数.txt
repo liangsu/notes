@@ -1,0 +1,18 @@
+===========================================================
+/////////// webloic resin tomcat 的远程调试的参数
+===========================================================
+参考：
+http://blog.csdn.net/sunyujia/article/details/2211109
+
+注意:这是Java命令的参数，不能换行，博客文章里面一行写不下，所以有换行，tomcat和resin3各一行，
+weblogic 两行"-"号后面紧跟字母"-"号前面是空格
+
+tomcat：
+SET CATALINA_OPTS=-server -Xdebug -Xnoagent -Djava.compiler=NONE  -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=8000
+
+weblogic8：
+set DEBUG_OPTS=-Xdebug -Xnoagent -Xrunjdwp:transport=dt_socket,server=y,address=7000,suspend=n
+%JAVA_HOME%/bin/java %DEBUG_OPTS% %JAVA_VM% %MEM_ARGS% %JAVA_OPTIONS% -Dweblogic.Name=%SERVER_NAME% -Dweblogic.ProductionModeEnabled=%PRODUCTION_MODE% -Dweblogic.management.username= %WLS_USER% -Dweblogic.management.password= %WLS_PW% -Djava.security.policy="%WL_HOME%/server/lib/weblogic.policy" weblogic.Server
+
+resin3：
+httpd.exe -Xdebug -Xnoagent -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=9000

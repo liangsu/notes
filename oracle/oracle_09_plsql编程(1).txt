@@ -1,0 +1,308 @@
+pl/sql是什么：
+pl/sql(procedural language/sql)是oracle在标准
+的sql语言上的扩展，pl/sql不仅允许嵌入sql语言，
+还可以定义变量和常量，允许使用条件语句和循环语句，
+允许使用例外处理各种错误，这样使得它的功能变得更加强大。
+
+1.过程，函数，触发器是pl/sql编写
+2.过程，函数，触发器在oracle中
+3.pl/sql是非常强大的数据库过程语言
+4.过程，函数可以在java程序中调用
+
+优点：
+1.提高应用程序的运行性能
+2.模块化的设计思想（分页的过程、订单的过程、转账的过程）
+3.减少网络传输量
+4.提高安全性
+
+缺点：
+1.移植性不好
+
+------------------------------------
+案例：
+
+create table mytest(name varchar2(30),passwd varchar2(30));
+
+1.编写一个存储过程，该过程可以删除一条记录：
+create or replace procedure pro_sp1 is
+begin
+	insert into mytest values('小明','m123');
+end;
+/
+
+replace:表示如果有就替换
+
+2.如何查看错误信息
+show error
+
+3.如何调用该过程
+a. exec 过程名(参数值1,参数值2....);
+b. call 过程名(参数值1,参数值2....);
+如： exec pro_sp1;
+或者： call pro_sp1();
+
+4.创建删除记录的过程：
+create or replace procedure pro_sp2 is
+begin
+	delete from mytest where name='小明'
+end;
+/
+
+简单分类：
+
+块（编程）：
+1.过程（存储过程）
+2.函数
+3.触发器
+4.包
+
+编写规范：
+①注释：
+单行注释： --
+多行注释： /*....*/
+
+②标志符号的命名规范：
+a.当定义变量时，建议用 v_ 作为前缀 v_sal
+b.当定义常量时，建议用 c_ 作为前缀 c_rate
+c.当定义游标时，建议用 _cursor 作为后缀 emp_cursor
+d.当定义例外时，建议用 e_ 作为前缀 e_error
+
+declear :
+/*定义部分---定义常量、变量、游标、例外、复杂数据类型 */
+begin： 开始
+exception：
+/* 例外处理部分---处理运行的各种错误 */
+end： 结束
+
+--------------------------------------------
+【块】：
+
+1.最简单的块：
+set serveroutput on;--打开输出选项
+begin
+	dbms_output.put_line("hello,world");
+end;
+/
+
+2.有定义和执行部分的块：
+declare 
+--定义变量
+v_ename varchar2(5);
+v_sal number(7,2);
+begin
+--执行部分
+	select ename,sal into v_ename,v_sal from emp where empno=&no;
+	dbms_output.put_line('雇员名：'||v_ename' 工资'||v_sal);
+end;
+/
+
+3.包含定义、执行、例外处理部分
+declare
+v_ename emp.ename%type;
+v_sal emp.sal%type;
+begin
+  select ename,sal into v_ename,v_sal from emp where empno=&no;
+  dbms_output.put_line('员工姓名：' || v_ename || '薪水：' || v_sal);
+  exception
+  when no_data_found then
+   dbms_output.put_line('员工编号不存在');
+end;
+/
+
+no_data_found:就是找不到数据的例外
+
+------------------------------------------
+【过程】：
+
+1.创建过程，通过用户名修改工资：
+create procedure pro_sp3(spName varchar2,spSal number) is
+begin
+	update emp set sal = spSal where ename=spName;
+end;
+/
+
+2.如何在java中调用一个存储过程：
+Connection conn = null;
+CallableStatement cs = conn.prepareCall("{call pro_sp3(?,?)}");
+cs.setString(1,"SMITH");
+cs.setString(2,1000);
+cs.execute();
+cs.close();
+
+3.如何使用过程返回值？
+
+
+----------------------------------------------
+【函数】：
+
+1.输入雇员的姓名，返回雇员的年薪
+create function sp_fun(spName varchar2) 
+return number is yearSal number(7,2);
+begin
+	select sal*12+nvl(comm,0)*12 into yearSal from emp where ename=spName;
+	return yearSal;
+end;
+/
+
+2.调用函数：
+var income number;
+call sp_fun('SCOTT') into:income;
+print income;
+或者
+select sp_fun('SCOTT') from dual;
+
+-------------------------------------------
+【包】：
+包是用于逻辑上组合过程和函数，它由包规范和包体两部分组成。
+
+创建一个包，
+声明该包有一个过程和一个函数
+create or replace package sp_package is
+	procedure update_sal(name varchar2,newsal number);
+	function annual_income(name varchar2) return number;
+end;
+/
+
+create package body sp_package is
+  procedure update_sal(v_ename varchar2,v_sal number) is
+    begin
+       update emp set sal=v_sal where ename=v_ename;
+    end;
+  function annual_income(name varchar2)
+  return number is 
+  yearSal number;
+  begin
+    select sal into yearSal from emp where ename=name;
+    return yearSal;
+  end;
+end;
+/
+
+调用包：
+call sp_package.update_sal('SCOTT',8000);
+
+-------------------------------------------
+【触发器】：
+
+
+
+-------------------------------------------
+变量：
+1.标准变量(scalar)
+2.复合变量(composite)
+3.参照变量(reference)
+4.lob(large object)
+
+
+1.定义一个变长字符串：
+v_ename varchar2(10);
+
+2.定义一个小数：
+v_sal number(6,2);
+
+3.定义一个小数并给一个初始值为5.4:=是pl/sql的赋值号
+v_sal2 number(6,2):=5.4
+
+4.定义一个日期类型的数据
+v_hiredate date;
+
+5.定义一个布尔变量，不能为空，初始值为false
+v_valid boolean not null default false;
+
+
+
+案例:
+1.输入员工号，显示雇员姓名、工资、个人所得税（税率0.03）
+declare
+c_tax_rate number(3,2):=0.03;
+v_ename varchar2(5);
+v_sal number(7,2);
+v_tax_sal number(7,2);
+begin
+	select ename,sal into v_ename,v_sal from emp where empno=&no;
+	----计算所得税
+	v_tax_sal := v_sal*c_tax_rate;
+	dbms_output.put_line('姓名:'||v_ename||' 工资'||v_sal||' 交税:'||v_tax_sal);
+end;
+/
+
+
+2.%type的使用：
+declare
+c_tax_rate number(3,2):=0.03;
+v_ename emp.ename%type;
+v_sal emp.sal%type;
+v_tax_sal number(7,2);
+begin
+	select ename,sal into v_ename,v_sal from emp where empno=&no;
+	----计算所得税
+	v_tax_sal := v_sal*c_tax_rate;
+	dbms_output.put_line('姓名:'||v_ename||' 工资'||v_sal||' 交税:'||v_tax_sal);
+end;
+/
+
+-----------------------------------
+复合变量：
+1.pl/sql记录（类似高级语言的结构体）
+2.pl/sql表（类似高级语言的数组）
+3.嵌套表
+4.varray
+
+案例1：
+declare
+--定义一个ps/sql记录类型emp_record_type
+type emp_record_type is record(
+	name emp.ename%type,
+	salary emp.sal%type,
+	title emp.job%type
+);
+--定义一个变量sp_record 变量，这个变量类型 emp_record_type
+sp_record emp_record_type;
+begin
+	select ename,sal,job into sp_record
+	from emp
+	where empno=7788;
+	dbms_output.put_line('员工名:'||sp_record.name);
+end;
+/
+
+sp/sql表案例：
+declare
+--index by binary_integer 表示下标是整数
+type sp_table_type is table of emp.ename%type index by binary_integer;
+sp_table sp_table_type;
+begin
+	select ename into sp_table(0) from emp where empno=7788;
+	dbms_output.put_line('员工名：'||sp_table(0));
+end;
+/
+
+-------------------------------------------
+参照变量：
+游标变量：(ref cursor)
+
+实例1:
+请使用sp/sql编写一个块，可以输入部门号，并显示该部门所有的员工姓名和工资
+declare
+--定义一个游标
+type sp_emp_cursor is ref cursor;
+--定义一个游标变量
+test_cursor sp_emp_cursor;
+v_name emp.ename%type;
+v_sal emp.sal%type;
+begin
+	--把test_cursor 和一个 select 结合
+	open test_cursor for select ename,sal from emp where deptno=&no;
+	--循环取出
+	loop
+		fetch test_cursor into v_name,v_sal;
+		--判断test_cursor是否为空
+		exit when test_cursor%notfound;
+		dbms_output.put_line('名字：'||v_name||' 工资:'||v_sal);
+	end loop;
+end;
+/
+
+案例2：
+在案例1的基础上，如果员工的工资低于200的则加上1000
+

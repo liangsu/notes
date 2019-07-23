@@ -1,0 +1,121 @@
+事务：
+ 
+ savepoint a;
+ rollback to a;
+ commit;
+
+ set transaction read only;
+ 设置之后，在这之后的更新的数据，该用户看不到，
+ 常用于统计
+
+ ==================================================
+函数：
+lower(char)
+upper(char)
+length(char)
+substr(char,m,n) ：m开始下标，n是取字符的个数
+replace(char,search_string,replace_string)
+instr(char1,char2,[,n[,m]]) 取子串在字符串的位置
+
+案例：
+将名字显示为小写：
+select lower(ename),val from emp;
+
+显示名字长度为5的员工
+select * from emp where length(ename)=5;
+
+从第1个取，取3个字符
+select substr(ename,1,3) from emp;
+
+首字母大写显示全部员工的姓名
+//>>select upper(substr(ename,1,1)) from emp;
+//>>select lower(substr(ename,2,length(ename))) from emp;
+select upper(substr(ename,1,1))||lower(substr(ename,2,length(ename))) from emp;
+
+将A替换为 我是老虎
+select replace(ename,'A','我是老虎') from emp;
+----------------------------------------------------------
+
+数学函数：
+round(n,[m]):m代表四舍五入到第几位
+trunc(n,[m]):m代表小数点后直接截取多少位(55.66-->55.6)
+mod(m,n)    :取模，取余
+floor(n)    :向下取整
+ceil(n)	    :向上取整
+abs(n):
+acos(n):
+asin(n):
+atan(n):
+
+在做oracle测试的时候可以使用一个dual表
+select mod(10,2) from dual;
+
+----------------------------------------------------------
+日期函数：
+
+sysdate
+add_mouths(d,n)
+last_day(d)
+
+查找入职8个月多的员工：
+select * from emp where sysdate>add_months(hiredate,8);
+
+对于每个员工，显示其加入公司的天数：
+select floor(sysdate-hiredate) "入职天数",ename from emp;
+
+找出各月倒数第3天受雇的所有员工
+select * from emp where last_day(hiredate)-2=hiredate;
+
+----------------------------------------------------------
+转换函数：
+to_char()
+to_date()
+sys_context()
+
+
+yy:两位数字的年份 2004->04
+yyyy：四位数字的年份 2004年
+mm：两位数字的月份
+dd：两位数字的天 30号-->30
+hh24: 8点-->20
+hh12: 8点-->08
+mi ss --> 显示分钟/秒
+
+.:在指定位置显示小数点
+,:在指定位置显示逗号
+$:在数字前面加美元
+L:在数字前面加本地货币符号
+C:在数字前面加国际货币符号
+G:在指定位置显示组分隔符
+D:在指定位置显示小数点符号(.)
+
+create table t1(id int);
+insert into t1 values('10'); ---> 这样oracle会将‘10’--->10
+
+create table t2(id varchar2(10));
+insert into t2 values(1); ---> 这样oracle会将 1--->'1'
+
+显示雇用日期的，精确到秒,
+select ename,to_char(hiredate,'yyyy-mm-dd hh24:mi:ss'),to_char(sal,'L99,999.99') from emp;
+
+显示1980年入职的所有员工
+select * from emp where to_char(hiredate,'yyyy')=1980;
+
+显示所有12月份入职的所有员工
+select * from emp where to_char(hiredate,'mm')=12;
+
+-----------
+sys_context()
+
+terminal:当前会话客户所对应的终端的标识符
+lanuage :语言
+db_name :当前数据库名称
+nls_date_formate:当前会话客户所对应的日期格式
+session_user    :当前会话客户所对应的数据库用户名
+current_schema  :当前会话客户所对应的默认方案名？
+host :返回数据库所在主机的名称
+
+
+查询你正在使用哪个数据库
+select sys_context('userenv','db_name') from dual;
+

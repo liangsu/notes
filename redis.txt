@@ -1,0 +1,100 @@
+# redis
+
+## 简介
+* redis常用场景：会话缓存、数据库缓存、排行榜/计数器、发布订阅、实现分布式锁、队列
+
+## 安装启动（略）
+* make
+* make PREFIX=/app/redis-5.0.4 install
+* 启动： `/app/redis-5.0.4/bin/redis-server /app/redis-5.0.4/redis-cluster/7002/redis.conf`
+* 关闭： `/app/redis-5.0.4/bin/redis-cli -p 7006 shutdown`
+* 查看redis进程： `ps aux|grep redis`
+
+
+
+## 实现分布式锁：setnx命令（或带nx参数的set命令）
+* SETNX——SET if Not eXists（如果不存在，则设置）
+* 命令格式： `setnx key value`
+* 调用成功返回1，调用失败返回0
+```
+127.0.0.1:6379> setnx locka "bbb"
+(integer) 1
+127.0.0.1:6379> setnx locka "ccc"
+(integer) 0
+```
+* 对比zookeeper的分布式锁参考： https://baijiahao.baidu.com/s?id=1610572906386264645&wfr=spider&for=pc
+
+
+
+## Redis发布订阅与ActiveMQ的比较
+1. ActiveMQ支持多种消息协议，包括AMQP，MQTT，Stomp等，并且支持JMS规范，但Redis没有提供对这些协议的支持； 
+2. ActiveMQ提供持久化功能，但Redis无法对消息持久化存储，一旦消息被发送，如果没有订阅者接收，那么消息就会丢失； 
+3. ActiveMQ提供了消息传输保障，当客户端连接超时或事务回滚等情况发生时，消息会被重新发送给客户端，Redis没有提供消息传输保障。 总之，ActiveMQ所提供的功能远比Redis发布订阅要复杂，
+毕竟Redis不是专门做发布订阅的，但是如果系统中已经有了Redis，并且需要基本的发布订阅功能，就没有必要再安装ActiveMQ了，因为可能ActiveMQ提供的功能大部分都用不到，而Redis的发布订阅
+机制就能满足需求。
+
+
+## jedis链接redis报错解决：
+1. 创建链接报错如下，解决办法，在redis的配置文件redis.conf中添加绑定ip，如:`bind 127.0.0.1 192.168.199.129`
+```
+redis.clients.jedis.exceptions.JedisExhaustedPoolException: Could not get a resource since the pool is exhausted
+	at redis.clients.jedis.util.Pool.getResource(Pool.java:53)
+	at redis.clients.jedis.JedisPool.getResource(JedisPool.java:234)
+	at com.ls.RedisUtil.getJedis(RedisUtil.java:51)
+	at com.ls.TestRedis.connectRedis(TestRedis.java:18)
+	at com.ls.TestRedis.main(TestRedis.java:170)
+```
+
+## 持久化
+> 提供rdb、aof两种方式持久化，参考： https://www.cnblogs.com/AndyAo/p/8135980.html
+* rdb：原理是将Reids在内存中的数据库记录定时 dump到磁盘上的RDB持久化
+* aof：原理是将Reids的操作日志以追加的方式写入文件
+
+
+## redis的三种集群方式
+> 主从复制、哨兵模式、Redis-Cluster集群，Codis、Twemproxy参考： 
+https://my.oschina.net/ruoli/blog/2252393
+https://www.cnblogs.com/51life/p/10233340.html
+
+
+### 主从复制
+
+
+### 哨兵模式
+
+### Redis-Cluster集群
+
+* 配置
+1. 开启配置,参考： https://www.cnblogs.com/wuxl360/p/5920330.html
+```
+port  7000                                        //端口7000,7002,7003        
+bind 本机ip                                       //默认ip为127.0.0.1 需要改为其他节点机器可访问的ip 否则创建集群时无法访问对应的端口，无法创建集群
+daemonize    yes                               //redis后台运行
+pidfile  /var/run/redis_7000.pid          //pidfile文件对应7000,7001,7002
+cluster-enabled  yes                           //开启集群  把注释#去掉
+cluster-config-file  nodes_7000.conf   //集群的配置  配置文件首次启动自动生成 7000,7001,7002
+cluster-node-timeout  15000                //请求超时  默认15秒，可自行设置
+appendonly  yes                           //aof日志开启  有需要就开启，它会每次写操作都记录一条日志
+```
+
+2. 创建集群遇到的问题：
+```
+// 3.0之后5.0之前的版本创建集群的命令：
+./redis-trib.rb  create  --replicas  1  127.0.0.1:7001 127.0.0.1:7002  127.0.0.1:7003 127.0.0.1:7004  127.0.0.1:7005  127.0.0.1:7006
+
+// 5.0之后的版本创建集群的命令：
+/app/redis-5.0.4/bin/redis-cli --cluster create 127.0.0.1:7001 127.0.0.1:7002 127.0.0.1:7003 127.0.0.1:7004 127.0.0.1:7005 127.0.0.1:7006 --cluster-replicas 1
+```
+
+
+
+## 问题：
+* redis排序的应用有哪些？
+* redis集群方式，怎么扩容
+* 持久化
+
+
+
+get /mana_job/egov.mana.job.bigdata.DoThingsStatCorrectJob/leader/sharding
+
+

@@ -1,0 +1,20 @@
+1. 掌握spring boot体系
+2. 熟悉spring boot actutor
+3. elasticSearch 适合做数据的永久存储吗？
+4. 学习hadoop
+5. 学习spark
+6. 学习flink
+7. 常用负载均衡算法有哪些？
+8. 分布式日志搜集规范
+
+
+
+<dependency>
+            <groupId>io.zipkin.java</groupId>
+            <artifactId>zipkin-autoconfigure-ui</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.zipkin.java</groupId>
+            <artifactId>zipkin-server</artifactId>
+        </dependency>

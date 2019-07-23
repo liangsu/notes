@@ -1,0 +1,217 @@
+条件分支语句：
+if then
+if then else
+if then elseif else
+
+1.编写一个过程，可以输入一个雇员的名字，如果该雇员的
+工资低于2000，就给该雇员的工资增加10%：
+create or replace procedure pro_sp3(name varchar2) is
+begin
+	update emp set sal=sal*1.1 where ename=name and sal<2000;
+end;
+
+create or replace procedure pro_sp3(name varchar2) is
+v_sal emp.sal%type;
+begin
+	select sal into v_sal from emp where ename=name;
+	if v_sal<2000 then
+	update emp set sal=sal*1.1 where ename=name;
+	end if;
+end;
+/
+
+<>:不等于
+
+-----------------------------------
+循环语句：
+loop...end loop; 至少循环一次
+while...loop...end loop;
+for
+goto end_loop; <<end_loop>>
+
+
+1.编写一个过程，可以输入用户名，并循环添加10个用户进入表test(id,name);
+create or replace procedure pro_sp3(spName varchar2) is
+v_num number:=1;
+begin
+	loop
+		insert into test values(v_num,spName||v_num);
+		exit when v_num >= 10;
+		v_num := v_num+1;
+	end loop;
+end;
+/
+
+create or replace procedure pro_sp3(spName varchar2) is
+v_num number:=1;
+begin
+	while v_num<=10 loop
+		insert into test values(v_num,spName||v_num);
+		v_num := v_num+1;
+	end loo;
+end;
+/
+
+begin
+	for i in reverse 1..10 loop
+		insert into test values(v_num,spName||v_num);
+	end loop;
+end;
+/
+
+-------------------------------------------
+in：表示输入参数
+out：表示输出参数
+
+1.编写一个过程，输入员工的编号，返回员工的姓名:
+create or replace procedure pro_sp1
+(spNo in number,spName out varchar2,spSal out number) is
+begin
+	select ename,sal into spName,spSal from emp where empno=spNo;
+end;
+/
+
+java调用存储过程：
+conn = DriverManager.getConnection(url,username,password);
+cs = conn.prepareCall("{call pro_sp1(?,?,?)}");
+
+cs.setInt(1, 8890);
+cs.registerOutParameter(2, oracle.jdbc.OracleTypes.VARCHAR);
+cs.registerOutParameter(3, oracle.jdbc.OracleTypes.DOUBLE);
+cs.execute();
+
+String name = cs.getString(2);
+double sal = cs.getDouble(3);
+System.out.println(name);
+System.out.println(sal);
+
+-------------------------------------------
+1.编写一个存储过程，输入部门号，返回所有员工。【返回结果集】
+a.建立一个包,在该包中定义一个游标test_cursor
+create or replace package testpackage as
+type test_cursor is ref cursor;
+end testpackage;
+/
+b.建立存储过程
+create or replace procedure pro_sp2(spNo in number,p_cursor out testpackage.test_cursor) is
+begin
+	open p_cursor for 
+	select * from emp where deptno=spNo;
+end;
+/
+
+java调用存储过程：
+cs = conn.prepareCall("{call pro_sp2(?,?)}");
+cs.setInt(1, 20);
+cs.registerOutParameter(2, oracle.jdbc.OracleTypes.CURSOR);
+cs.execute();
+rs = (ResultSet) cs.getObject(2);
+while(rs.next()){
+	int empno = rs.getInt("empno");
+	String name = rs.getString("ename");
+	System.out.println(empno+" "+name);
+}
+
+-------------------------------------------
+编写一个存储过程，实现分页
+create or replace procedure page_pro
+(currentPage number,pageSize number,sp_cursor out testPackage.test_cursor) is
+begin
+	open sp_cursor for
+	select * from (select a.*,rownum rn from (select * from emp) a where rownum<=(currentPage*pageSize)) where rn>((currentPage-1)*pageSize);
+end;
+/
+
+
+【补充】：
+create or replace procedure page_pro
+(currentPage number,pageSize number,sp_cursor out testPackage.test_cursor) is
+v_sql varchar2(1000);
+v_rows number;
+v_sql := 'select * from (select a.*,rownum rn from (select * from emp) a where rownum<=(currentPage*pageSize)) where rn>((currentPage-1)*pageSize)';
+begin
+	open sp_cursor for v_sql;
+end;
+/
+
+v_sql := 'select count(*) from emp';
+execute immediate v_sql into myrows;
+
+--------------------------------------------------
+【例外处理】：
+
+1.编写一个过程，可以接收雇员的编号，并显示雇员姓名。
+create or replace procedure pro_sp3(spNo in number) is
+name emp.ename%type;
+begin
+	select ename into name from emp where empno = spNo;
+	dbms_output.put_line('name:'||name);
+	exception
+	when no_data_found then
+	dbms_output.put_line('编号不存在');
+end;
+/
+
+
+预定义例外：
+case_not_found:案例没找到
+cursor_already_open:游标已经打开
+dup_val_on_index: 
+invaild_cursor:试图从没打开的游标提取数据，或者关闭没有打开的游标
+invalid_number: 当输入的数据有误时
+no_data_found:
+too_many_rows: 如果返回超过了一行
+zero_divide: 当执行如2/0的操作时
+value_error: 如果变量的长度不足以容纳实际数据
+
+
+其它预定义例外：
+login_denied:当用户非法登陆
+no_loggen_on: 
+storage_error:
+timeout_on_resource:
+
+-------------------------------------------
+处理自定义例外：
+
+1.编写过程，输入员工号，工资加1000，如果员工不存在，则提示
+create or replace procedure pro_ex(spNo number)
+is
+myex Exception;
+begin
+	update emp set sal=sal+1000 where empno=spNo;
+	if sql%notfound then
+	raise myex;
+	end if;
+	exception
+	when myex then
+	dbms_output.put_line('没有跟新任何用户');
+end;
+/
+
+-------------------------------------------
+【视图】：
+视图是一个虚拟表，其内容由查询定义。同真实表一样，视图
+包含一系列带有名称的列和行数据。但是，视图并不再数据库中
+以存储的数据值集形式存在。行和列数据来自由定义视图的查询所
+引用的表，并且在引用视图时动态生成。
+
+1.表需要占用磁盘空间，视图不需要
+2.视图不能添加索引
+3.使用视图可以简化 复杂查询
+4.视图有利于提高安全性
+
+1.创建视图
+create view 视图名 as select语句 [with read only];
+
+2.创建或者删除视图
+create or replace view 视图名 as select语句 [with read only];
+
+2.删除视图
+drop view 视图名
+
+1.创建一个视图，可以查看雇员名和部门名
+create view v1_view as
+select emp.ename,dept.dname
+from emp,dept
+where emp.deptno=dept.deptno;

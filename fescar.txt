@@ -1,0 +1,138 @@
+## 运行fescar心得：
+
+1. 链接mysql报错，时区没设置：
+```
+show VARIABLES like '%time_zone%';
+set global time_zone='+8:00';
+```
+
+2、缺点：
+* 有两个请求，对A表的一条数据的一个字段进行更新，第一次更新失败，第二次更新成功，这时候，第一次的回滚会不会导致第二次的更新失败？
+	答：fescar中有全局锁
+* 在执行回滚的时候，某一个回滚的微服务突然死了，这个微服务是否会回滚失败？
+
+
+
+
+
+1. 代理数据源io.seata.rm.datasource.DataSourceProxy：
+resourceGroupId： 默认值DEFAULT
+ResourceId： jdbcUrl
+BranchType： AT、TCC 默认AT
+
+sql执行类： io.seata.rm.datasource.exec.ExecuteTemplate
+	* 加执行前后镜像，写入undo_log
+
+
+ResourceManager
+	AT: DataSourceManager
+	TCC: TCCResourceManager
+	
+	
+DataSourceManager
+	AsyncWorker： 定时清除undo_log的任务
+
+	
+GlobalTransactionScanner：
+* 初始化客户端rpcClient
+
+
+客户端请求：
+
+* GlobalBeginRequest：全局事务切面开启事务时触发，同步调用，返回全局事务xid
+* GlobalCommitRequest： 全局事务切面提交事务时触发，同步调用，返回全局事务状态
+* GlobalRollbackRequest：全局事务切面回滚事务触发，同步调用，返回全局事务状态
+
+* RegisterRMRequest： 获取连接之前触发，一个数据源只会触发一次，异步
+* BranchRegisterRequest： 事务提交之前触发，异步
+* BranchReportRequest: 事务提交之后触发，异步
+* GlobalLockQueryRequest：事务提交之前触发，同步，返回是否获取到了锁
+
+
+
+
+全局事务处理： io.seata.spring.annotation.GlobalTransactionalInterceptor
+
+
+
+
+
+## server消息解析
+* 服务端消息处理handler顺序： IdleStateHandler -> MessageCodecHandler -> RpcServer DefaultCoordinator
+* IdleStateHandler： 没搞懂干什么用的？
+* MessageCodecHandler： 消息编解码
+* 消息的传输都是基于类RpcMessage进行传输，RpcMessage.body中包含具体的消息内容，传输协议格式如下： 魔数 + 标志位（同步、心跳、请求、编码器）
+
+ * RpcMessage protocol
+ * 0     1     2     3     4           6           8          10           12          14         16
+ * +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+ * |   0xdada  |   flag    | typecode/ |                 requestid                     |           |
+ * |           |           | bodylength|                                               |           |
+ * +-----------+-----------+-----------+-----------+-----------+-----------+-----------+           +
+ * |                                    ... ...                                                    |
+ * +                                                                                               +
+ * |                                     body                                                      |
+ * +                                                                                               +
+ * |                                    ... ...                                                    |
+ * +-----------------------------------------------------------------------------------------------+
+ 
+* RpcServer： 消息分发，涉及关键方法调用链：
+```
+	io.seata.core.rpc.netty.AbstractRpcRemoting#channelRead()
+		io.seata.core.rpc.netty.RpcServer#dispatch()
+			io.seata.core.rpc.ServerMessageListener#onRegRmMessage()
+			io.seata.core.rpc.DefaultServerMessageListenerImpl#onTrxMessage()
+				io.seata.server.coordinator.DefaultCoordinator#onRequest()
+					io.seata.server.AbstractTCInboundHandler#handle(XXXRequest, io.seata.core.rpc.RpcContext)
+```
+
+* 在类AbstractTCInboundHandler中重载了很多同名handle方法，根据不同的Request有不同的handle方法
+* 
+ 
+ 
+ 
+ 
+ 
+## seata 全局锁：
+* seata中全局事务管理的锁管理接口是： io.seata.server.lock.LockManager，默认实现类是：DefaultLockManagerImpl
+* seata的锁数据结构是ConcurrentHashMap<String, ConcurrentHashMap<String, ConcurrentHashMap<Integer, Map<String , Long>>>>，其中key、value对应关系如下：
+```
+resourceId： 应数据库
+	tableName：表名
+		bucketId：篮子
+			pk： 主键id
+			transactionId：全局事务id
+```
+* resourceId：实际存储的是链接数据库的url，如：jdbc:mysql://localhost:3306/fescar?useSSL=false&useUnicode=true&characterEncoding=UTF8&serverTimezone=GMT
+* bucketId篮子： 计算规则 = 主键pk的HashCode % 128，可能使用来减少map的容量吧！
+* transactionId：如2012238793
+* 本质：该锁的key相当于：数据库+表名+主键id+全局事务id
+
+ 
+## seata server的会话管理
+* 会话初始化类： io.seata.server.session.SessionHolder，这里面可选择会话存储模式，DB、File，目前只支持存储在文件
+* seata server的会话管理接口是：io.seata.server.session.SessionManager，默认实现：DefaultSessionManager
+* 会话管理器FileBasedSessionManager，以Map<Long, GlobalSession>管理，key是事务id
+	* GlobalSession： 包含分支会话BranchSession
+		* BranchSession
+* 全局事务xid产生规则： ip:port:自增id
+* 会话管理器基于观察这模式设计的，观察者是FileBasedSessionManager， 被观察者是GlobalSession，当GlobalSession有状态改变时会触发响应的事件
+	* 观察者注册到被观察者的时机是：在触发全局事务开启的地方，创建全局事务并绑定关系,相关方法 io.seata.server.coordinator.DefaultCore#begin()
+
+
+## seata server的持久化
+
+
+
+## 
+
+ 
+ 
+
+ 
+ 
+ 
+ 
+ 
+
+

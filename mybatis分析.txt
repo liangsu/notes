@@ -1,0 +1,79 @@
+# mybatis
+
+## 拦截器
+* mybatis拦截器讲解： https://www.cnblogs.com/fangjian0423/p/mybatis-interceptor.html
+* 存放所有的拦截器： org.apache.ibatis.plugin.InterceptorChain
+* 用于获取一个对象的可用拦截器： org.apache.ibatis.plugin.InterceptorChain#pluginAll 
+* 判断本拦截器是否适用于某个类： org.apache.ibatis.plugin.Interceptor#plugin
+* 判断某个类是否能使用这个拦截器： org.apache.ibatis.plugin.Plugin#wrap ，且Plugin是创建的代理处理器，该类的invoke方法是真正判断是否调用interceptor方法
+
+## mybatis查询执行顺序：
+* sqlSessionTemplate执行select查询 -> 获取sqlsessionFactory ------> 开启sqlSession (包含executor) ---> 执行executor的query(4个参数) --> 执行executor的query(6个参数) --> 执行statementHandler.query
+```
+interceptor3（4个参数）
+interceptor2 （4个参数）
+	query(6个参数)
+interceptor1 (6个参数)
+```
+
+## mybatis的mapper
+* mapper的代理类： org.apache.ibatis.binding.MapperProxy
+* spring与mybatis结合生成mapper的bean类：mapperFactoryBean
+
+## sql解析
+* 解析类：org.apache.ibatis.builder.SqlSourceBuilder
+
+
+# mybatis-pagehelper：
+* 分页核心类拦截器： com.github.pagehelper.PageInterceptor
+* pagehelper拦截器详解： https://github.com/pagehelper/Mybatis-PageHelper/blob/master/wikis/zh/Interceptor.md
+* 疑问：既然query(4个参数)的方法，最终会调用query(6个参数)的方法，为什么PageInterceptor不做成只拦截query(6个参数)，这样还不会打乱拦截器的执行顺序
+
+# mybatis-plus: 
+* 通过重新sqlSessionFactory类来达到生成简单的crud方法
+* mapper简单CRUD的xml解析注入接口：com.baomidou.mybatisplus.core.injector.ISqlInjector
+
+# mybatis-plus中使用缓存
+>> 只有通过id获取对象的方法才使用缓存，其它的update、insert、delete方法清空缓存
+* 
+
+				
+/*mycat: datanode=dn1*/select count(*) from dth_affair;
+
+
+
+
+1. 将主键字段都改为id，如sys_user表的user_id改为id，
+	* 注意修改model.java
+	* 注意修改mapper.xml文件，以及使用了这张表的其它xml文件
+	* 注意修改页面上的html
+2. 将所有的mapper接口类，继承自com.sccl.base.mapper.MybatisMapper
+
+
+1. 使用mybatis-plus修改分页查询
+2. 增加根据id、shardKey的查询方法
+
+	
+	
+
+	
+	
+	
+	
+1. 部分更新
+2. 即使为空也更新
+<if test="affairName!= null  and affairName !='' ">	
+	
+	
+
+	
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,4 @@
+1. beanfactory在Spring中，是IOC的核心，用于创建装配bean
+2. FactoryBean接口：通过实现该接口，常用于创建复杂的bean
+3. InitializingBean接口： 用于bean在创建过程中的一个初始化方法，相比于init-method而言，没有了放射，但对spring有依赖。
+   在通常情况，InitializingBean接口和FactoryBean搭配使用，用于创建复杂的bean。

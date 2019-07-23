@@ -1,0 +1,9 @@
+eclipse调试鼠标放上去显示变量值：
+
+
+在eclipse中调试时，鼠标移动到变量上不显示值，这个原来自己也遇到过，没注意，反正就使用ctrl+shift+i嘛，也可以的，
+刚查了一下，解决方法如下：
+ 
+Window->Preferences->Java->Editor->Hovers 将[Variable Values]选择即可，如果第一个[Combined Hover]已经勾选，
+则将这个勾去掉，勾选[Variable Values]。如果还不行，就只能用ctrl+shift+i快捷键了。
+

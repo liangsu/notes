@@ -1,0 +1,2 @@
+mysql安装指南：
+http://blog.csdn.net/symoriaty/article/details/78277615

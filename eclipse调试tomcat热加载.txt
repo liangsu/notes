@@ -1,0 +1,5 @@
+server.xml
+reloadable="false"
+
+publishing:
+Automatically publish when resources change

@@ -1,0 +1,10 @@
+[ConnectionProfile]
+ConnectionType=JDBC
+Dbms=Oracle
+DisableBind=0
+Driver=oracle.jdbc.OracleDriver
+JarFiles=D:\Tools\PLSQL\instantclient_11_2\ojdbc6.jar
+LogId=MSS_PURCHASE_HSS
+MapDateToDateTime=1
+TrimSpaces=0
+URL=jdbc:oracle:thin:@192.168.167.111:1521:Q0CGF
