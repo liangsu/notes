@@ -14,3 +14,13 @@
 	* 配置的zipkin-storage-mysql与zipkin的版本没对应上，要使用一样的版本
 
 2. 使用rabbitMQ时，没有为用户配置虚拟主机，导致报错
+
+
+ Cannot store spans due to IllegalStateException(Elasticsearch 2.x and 5.x are supported, was: 6.0.0)
+ 
+ 
+ 
+ https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-7.1.1-windows-x86_64.zip
+ 
+ 
+ https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.6.16-windows-x86_64.zip
