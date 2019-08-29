@@ -1,0 +1,73 @@
+
+
+
+
+
+http://localhost:8001/auth/
+
+http://localhost:8001/auth/user/me
+
+http://localhost:8001/auth/oauth/authorize?client_id=client1&response_type=code&redirect_uri=http://www.baidu.com
+http://localhost:8001/auth/oauth/authorize?client_id=client1&response_type=code
+
+http://localhost:8001/auth/oauth/authorize?client_id=client1&response_type=code&redirect_uri=http://www.baidu.com
+
+
+http://localhost:8002/ui/test/hello?access_token=1a241338-7e7a-4a06-9116-9c2c85e8ffcd
+
+
+http://localhost:8001/auth/oauth/token?grant_type=authorization_code&code=6VMPSZ
+
+ 
+http://localhost:8002/ui/login/oauth2/code/okta-client-id
+http://localhost:8002/ui/oauth2/authorization/okta-client-id
+
+/oauth2/authorization/{registrationId}
+
+/oauth/authorize：验证
+
+/oauth/token：获取token
+
+/oauth/confirm_access：用户授权
+
+/oauth/error：认证失败
+
+/oauth/check_token：资源服务器用来校验token
+
+/oauth/token_key：如果jwt模式则可以用此来从认证服务器获取公钥
+
+
+
+{aud=[a, b, c], exp=1565562945, user_name=admin, authorities=[ROLE_USER], client_id=client1, scope=[user_info]}
+
+
+9d4aa877-720d-4940-9eaf-b4e1a10bb148
+
+
+
+http://localhost:8003/contents/view/28?access_token=3e23da5b-0e1c-4bf9-8637-0ea66e8f77af
+
+
+http://localhost:8001/auth/oauth/authorize?response_type=code&client_id=okta-client-id&scope=user_info&redirect_uri=http://localhost:8002/ui/login/oauth2/code/okta-client-id
+http://localhost:8001/auth/oauth/authorize?response_type=code&client_id=okta-client-id
+
+
+org.springframework.security.oauth2.core.OAuth2AuthenticationException: [invalid_user_info_response] An error occurred while attempting to retrieve the UserInfo Resource: 
+Could not extract response: no suitable HttpMessageConverter found for response type [java.util.Map<java.lang.String, java.lang.Object>] and content type [text/html;charset=UTF-8]
+
+
+
+OAuth2AuthenticationException UserInfo Resource HttpMessageConverter
+
+okta-client-id:secret@
+
+Client ID
+79c2dbe37f3ad4e5ff08
+Client Secret
+0f859ba4a271ac7cde5f2faa191424470b7e5b41
+
+https://github.com/login/oauth/authorize?client_id=79c2dbe37f3ad4e5ff08&response_type=code
+
+
+2a019e6bf6c3ee3180cb292bb5e4153fd2ac644b
+
