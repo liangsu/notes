@@ -1,5 +1,14 @@
 # mybatis
 
+## 基础结构：
+* org.apache.ibatis.session.Configuration：
+	* Map<String, MappedStatement> mappedStatements： 存放sql的类
+
+* MapperProxy
+	* Map<Method, MapperMethod/MybatisMapperMethod> methodCache: 存放每个方法的执行sql的方式
+	
+
+
 ## 拦截器
 * mybatis拦截器讲解： https://www.cnblogs.com/fangjian0423/p/mybatis-interceptor.html
 * 存放所有的拦截器： org.apache.ibatis.plugin.InterceptorChain
@@ -20,6 +29,7 @@ interceptor1 (6个参数)
 * mapper的代理类： org.apache.ibatis.binding.MapperProxy
 * spring与mybatis结合生成mapper的bean类：mapperFactoryBean
 
+
 ## sql解析
 * 解析类：org.apache.ibatis.builder.SqlSourceBuilder
 
@@ -30,8 +40,10 @@ interceptor1 (6个参数)
 * 疑问：既然query(4个参数)的方法，最终会调用query(6个参数)的方法，为什么PageInterceptor不做成只拦截query(6个参数)，这样还不会打乱拦截器的执行顺序
 
 # mybatis-plus: 
-* 通过重新sqlSessionFactory类来达到生成简单的crud方法
+* 通过重写sqlSessionFactory类来达到生成简单的crud方法，springboot的默认配置重新类：MybatisPlusAutoConfiguration#sqlSessionFactory
 * mapper简单CRUD的xml解析注入接口：com.baomidou.mybatisplus.core.injector.ISqlInjector
+
+* 填充主键： com.baomidou.mybatisplus.core.MybatisDefaultParameterHandler#populateKeys
 
 # mybatis-plus中使用缓存
 >> 只有通过id获取对象的方法才使用缓存，其它的update、insert、delete方法清空缓存
@@ -65,14 +77,33 @@ interceptor1 (6个参数)
 <if test="affairName!= null  and affairName !='' ">	
 	
 	
-
-	
-
-
-
-
-
-
+<script>
+INSERT INTO SYS_USER_GROUP <trim prefix="(" suffix=")" suffixOverrides=",">
+id,
+<if test="createUserId != null">create_user_id,</if>
+<if test="deleted != null">deleted,</if>
+<if test="expireTime != null">expire_time,</if>
+<if test="createTime != null">create_time,</if>
+<if test="name != null">name,</if>
+<if test="sign != null">sign,</if>
+<if test="structureId != null">structure_id,</if>
+<if test="updateTime != null">update_time,</if>
+<if test="dead != null">dead,</if>
+<if test="type != null">type,</if>
+</trim> VALUES <trim prefix="(" suffix=")" suffixOverrides=",">
+#{id},
+<if test="createUserId != null">#{createUserId},</if>
+<if test="deleted != null">#{deleted},</if>
+<if test="expireTime != null">#{expireTime},</if>
+<if test="createTime != null">#{createTime},</if>
+<if test="name != null">#{name},</if>
+<if test="sign != null">#{sign},</if>
+<if test="structureId != null">#{structureId},</if>
+<if test="updateTime != null">#{updateTime},</if>
+<if test="dead != null">#{dead},</if>
+<if test="type != null">#{type},</if>
+</trim>
+</script>
 
 
 
