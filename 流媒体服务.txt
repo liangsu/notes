@@ -1,0 +1,31 @@
+本地：
+
+ffmpeg -i "夏洛特的烦恼.2015.BD720P.x264.国语中文字幕.rarbt.mp4" -c:v libx264 -ar 22050 -crf 25 -acodec aac -f flv test.flv
+ffmpeg -re -i test.flv -c copy -f flv rtmp://192.168.199.129/live
+
+
+
+
+ffmpeg -re -i aa.mp4 -vcodec copy -acodec copy -b:v 800k -b:a 32k -f flv rtmp://192.168.199.129/live
+
+ffmpeg -re -i G:\备课\youyiku.mp4 -vcodec copy -acodec copy -b:v 800k -b:a 32k -f flv rtmp://192.168.199.129/live
+ffmpeg -re -i youyiku.mp4 -vcodec copy -acodec copy -b:v 800k -b:a 32k -f flv rtmp://192.168.18.1/live
+
+
+
+
+ffplay rtmp://192.168.199.129/live
+
+ffplay rtmp://192.168.199.129/vod/aa.mp4
+
+ffplay rtmp://192.168.199.129/hls/aa.mp4
+
+ffplay rtmp://192.168.3.232/live
+
+ffplay rtmp://mobliestream.c3tv.com:554/live/goodtv.sdp
+
+
+
+远程：
+ffmpeg -re -i "夏洛特的烦恼.2015.BD720P.x264.国语中文字幕.rarbt.mp4" -c:v libx264 -ar 22050 -crf 25 -acodec aac -f flv rtmp://192.168.3.232/live
+ffmpeg -i "夏洛特的烦恼.2015.BD720P.x264.国语中文字幕.rarbt.mp4" -c:v libx264 -ar 22050 -crf 25 -acodec aac -f flv test.flv

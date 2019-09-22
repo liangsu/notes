@@ -1,5 +1,15 @@
 # mybatis
 
+## 基础结构：
+* org.apache.ibatis.session.Configuration：
+	* Map<String, MappedStatement> mappedStatements： 存放sql的类
+
+* MapperProxy
+	* Map<Method, MapperMethod/MybatisMapperMethod> methodCache: 存放每个方法的执行sql的方式
+	
+	
+	
+
 ## 拦截器
 * mybatis拦截器讲解： https://www.cnblogs.com/fangjian0423/p/mybatis-interceptor.html
 * 存放所有的拦截器： org.apache.ibatis.plugin.InterceptorChain

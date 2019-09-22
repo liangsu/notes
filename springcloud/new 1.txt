@@ -56,6 +56,10 @@ org.springframework.security.oauth2.core.OAuth2AuthenticationException: [invalid
 Could not extract response: no suitable HttpMessageConverter found for response type [java.util.Map<java.lang.String, java.lang.Object>] and content type [text/html;charset=UTF-8]
 
 
+could not be registered.
+A bean with that name has already been defined in BeanDefinition defined in class path resource 
+[org/springframework/security/oauth2/config/annotation/configuration/ClientDetailsServiceConfiguration.class] and overriding is disabled.
+
 
 OAuth2AuthenticationException UserInfo Resource HttpMessageConverter
 
@@ -70,4 +74,17 @@ https://github.com/login/oauth/authorize?client_id=79c2dbe37f3ad4e5ff08&response
 
 
 2a019e6bf6c3ee3180cb292bb5e4153fd2ac644b
+
+
+
+
+
+
+
+
+
+
+
+
+
 
