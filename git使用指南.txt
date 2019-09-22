@@ -223,6 +223,11 @@ git push origin --delete ask
 git push -u origin master -f
 ```
 
+7. 从远程仓库里拉取一条本地不存在的分支时：
+```
+git checkout -b 本地分支名 origin/远程分支名
+```
+
 问题： 更新远程仓库，并解决冲突
 
 
