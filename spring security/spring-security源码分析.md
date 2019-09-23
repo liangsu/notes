@@ -130,7 +130,12 @@ protected final O doBuild() throws Exception {
 3. performBuild()
 	* 以filters、requestMatcher为参数，创建DefaultSecurityFilterChain
    
+UrlMapping
+/user/view : [role_user,role_admin]
+/user/view : [role_test]
 
+/user/view : [role_user,role_admin]
+AnyRequestMatcher  authenticated
 
 
 

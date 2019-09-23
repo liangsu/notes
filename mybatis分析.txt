@@ -77,7 +77,6 @@ mybatis的启动过程，就是SqlSessionFactory的构建过程
 1. mybatis的启动过程，首先将所有配置相关的解析到Configuration中，Configuration中包含有mybatis运行中的所有配置。如：sql语句相关的MappedStatement
 2. 在创建DefaultSqlSessionFactory时，构造函数有传入Configuration，Configuration在sql执行的过程中也会多次使用到
 
-
 ## 拦截器
 * mybatis拦截器讲解： https://www.cnblogs.com/fangjian0423/p/mybatis-interceptor.html
 * 存放所有的拦截器： org.apache.ibatis.plugin.InterceptorChain
