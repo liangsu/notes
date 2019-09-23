@@ -26,6 +26,7 @@
 * 为mapper接口生成真正实例，并交由spring管理
 * 继承自MapperFactoryBean
 * 获取真正实例其实是调用的mybatis内部的方法：getSqlSession().getMapper(this.mapperInterface);
+* 调用MapperRegistry的注册方法，解析mapper类
 
 
 ## 三、将事务交由spring管理
