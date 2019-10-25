@@ -11,6 +11,11 @@
 * SynchronousMethodHandler：同步方法调用处理类，invoke()复制调用请求
 * FeignLoadBalancer： 
 
+* FeignClientFactoryBean
+FeignClientSpecification
+
+
+
 ## 调用
 * feign的http请求头
 ```
