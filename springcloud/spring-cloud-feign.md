@@ -48,7 +48,7 @@
 1. 属性：
 	* final List<RequestInterceptor> requestInterceptors ： 拦截器
     * Logger.Level logLevel： 日志
-    * Contract contract :
+    * Contract contract = new Contract.Default() : 
     * Client client : 执行http请求的客户端
     * Retryer retryer : 重试策略
     * Logger logger :
@@ -83,11 +83,29 @@
 2. Map<String, MethodHandler>
 	
 ### BuildTemplateByResolvingArgs
-	
-	
-### SynchronousMethodHandler：同步方法调用处理类，invoke()复制调用请求
 
-### FeignLoadBalancer： 
+1. 作用：解析方法上的参数
+2. 实现类：BuildFormEncodedTemplateFromArgs、BuildEncodedTemplateFromArgs、BuildTemplateByResolvingArgs
+
+3. BuildFormEncodedTemplateFromArgs
+	* form表单参数解析
+	* 会调用到编码器feign.codec.Encoder
+
+4. BuildEncodedTemplateFromArgs
+	* 上传文件
+	* 会调用到编码器feign.codec.Encoder
+	
+5. BuildTemplateByResolvingArgs
+	* 一般参数解析，拼接url上的参数
+	* 不涉及编码器
+
+	
+### SynchronousMethodHandler：
+
+1. 同步方法调用处理类，invoke()负责调用请求
+
+### FeignLoadBalancer：
+
 
 
 
