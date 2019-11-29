@@ -1,0 +1,99 @@
+# ThreadPoolExecutor
+参考： https://www.jianshu.com/p/fa1eac9710c8
+
+## 
+
+
+
+```
+private static final int COUNT_BITS = Integer.SIZE - 3;
+private static final int CAPACITY   = (1 << COUNT_BITS) - 1;
+
+// runState is stored in the high-order bits
+private static final int RUNNING    = -1 << COUNT_BITS;
+private static final int SHUTDOWN   =  0 << COUNT_BITS;
+private static final int STOP       =  1 << COUNT_BITS;
+private static final int TIDYING    =  2 << COUNT_BITS;
+private static final int TERMINATED =  3 << COUNT_BITS;
+```	
+
+CAPACITY：  0001 1111 1111 1111 1111 1111 1111 1111
+~CAPACITY： 1110 0000 0000 0000 0000 0000 0000 0000
+RUNNING：   1010 0000 0000 0000 0000 0000 0000 0000
+SHUTDOWN：  0000 0000 0000 0000 0000 0000 0000 0000
+STOP：      0010 0000 0000 0000 0000 0000 0000 0000
+TIDYING：   0100 0000 0000 0000 0000 0000 0000 0000
+TERMINATED：0110 0000 0000 0000 0000 0000 0000 0000
+
+
+runStateOf(): 获取前3位的运算结果，也就是运行状态
+workerCountOf(): 获取后面29位的运算结果，也就是线程的数量
+ctlOf(int rs, int wc)：函数明显是把经过上述两个步骤的整数结果合并成原来整数的作用。
+
+状态值的比较： RUNNING < SHUTDOWN < STOP < TIDYING < TERMINATED
+
+
+```
+public void execute(Runnable command) {
+	if (command == null)
+		throw new NullPointerException();
+		
+	int c = ctl.get();
+	if (workerCountOf(c) < corePoolSize) { // 如果正在运行的线程数少于核心线程数
+		if (addWorker(command, true)) // 尝试新增一个工作线程
+			return;
+		c = ctl.get();
+	}
+	if (isRunning(c) && workQueue.offer(command)) {
+		int recheck = ctl.get();
+		if (! isRunning(recheck) && remove(command)) // 如果线程池停止了，则从队列移除任务，并且拒绝任务。疑问：这时候拒绝任务，有可能这个任务已经被执行完了？？？
+			reject(command);
+		else if (workerCountOf(recheck) == 0) // 线程池正在运行，且工作线程等于0，新增一个工作线程
+			addWorker(null, false);
+	}
+	else if (!addWorker(command, false)) // 添加非核心线程失败，说明线程池停止了或者队列满了，拒绝任务。
+		reject(command);
+}
+```
+
+1. 如果正在运行的线程数少于核心线程数，尝试新增一个工作线程。调用addWorker是原子操作
+2. 如果向队列中添加任务成功，再次检查线程池运行状态，
+								如果线程池停止了，那么移除任务并拒绝接收任务
+								如果线程数量为0，尝试新开启一个线程
+3. 如果向队列添加任务失败，且添加线程失败，说明线程停止了或者队列满了，拒绝任务
+
+总结：
+1. 添加任务时，当任务队列满了，会添加非核心线程来处理任务
+
+
+
+
+
+
+问题：
+1. 问什么要用一个变量AtomicInteger来，既表示运行状态，又表示线程数量？至于这么节省内存空间吗？
+2. 见上：疑问：这时候拒绝任务，有可能这个任务已经被执行完了？？？
+	答： 上述方法remove成功了，说明任务还在队列中，可以执行拒绝任务
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
