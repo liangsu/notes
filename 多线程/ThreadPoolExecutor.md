@@ -64,7 +64,7 @@ public void execute(Runnable command) {
 
 总结：
 1. 添加任务时，当任务队列满了，会添加非核心线程来处理任务
-
+2. 两次检查线程状态的目的： 因为在检查线程池运行状态和向队列添加任务之间可能发生：1.线程池停止了 2.任务执行完了，工作线程全死了
 
 
 
@@ -76,9 +76,92 @@ public void execute(Runnable command) {
 	答： 上述方法remove成功了，说明任务还在队列中，可以执行拒绝任务
 
 
+1. 
+rs		  firstTask	queue是否为空  是否执行if语句
+shutdown    null        空			true
+shutdown	null        非空		false
+shutdown	not 		空			true
+shutdown	not			非空		true
+STOP		null		空			true
+STOP		null		非空		true
+STOP		not			空			true
+STOP		not			非空		true
 
+可以换成：
+if(rs != SHUTDOWN || firstTask != null || workQueue.isEmpty()){
 
+}
 
+```
+private boolean addWorker(Runnable firstTask, boolean core) {
+	// 反复尝试增加工作线程数量
+	retry:
+	for (;;) {
+		int c = ctl.get();
+		int rs = runStateOf(c);
+
+		// Check if queue empty only if necessary.
+		// 只有队列为非空，才不会直接返回
+		if (rs >= SHUTDOWN && // 线程池停止了
+			! (rs == SHUTDOWN &&
+			   firstTask == null &&
+			   ! workQueue.isEmpty()))
+			return false;
+
+		for (;;) {
+			int wc = workerCountOf(c);
+			if (wc >= CAPACITY ||
+				wc >= (core ? corePoolSize : maximumPoolSize)) // 如果线程数超过，则返回
+				return false;
+			if (compareAndIncrementWorkerCount(c)) // 使用乐观锁，增加工作线程数量，增加成功结束外层循环。这里不直接调用incr方法，是怕在增加之后，线程池状态变了
+				break retry;
+			c = ctl.get();  // Re-read ctl
+			if (runStateOf(c) != rs) // 再次检查状态，如果线程池的状态变了，再次进行下次循环
+				continue retry;
+			// else CAS failed due to workerCount change; retry inner loop
+		}
+	}
+
+	boolean workerStarted = false;
+	boolean workerAdded = false;
+	Worker w = null;
+	try {
+		w = new Worker(firstTask);
+		final Thread t = w.thread;
+		if (t != null) {
+			final ReentrantLock mainLock = this.mainLock;
+			mainLock.lock();
+			try {
+				// Recheck while holding lock.
+				// Back out on ThreadFactory failure or if
+				// shut down before lock acquired.
+				int rs = runStateOf(ctl.get());
+
+				if (rs < SHUTDOWN ||
+					(rs == SHUTDOWN && firstTask == null)) {
+					if (t.isAlive()) // precheck that t is startable
+						throw new IllegalThreadStateException();
+					workers.add(w);
+					int s = workers.size();
+					if (s > largestPoolSize)
+						largestPoolSize = s;
+					workerAdded = true;
+				}
+			} finally {
+				mainLock.unlock();
+			}
+			if (workerAdded) {
+				t.start(); // 将线程启动放在外面，是为了减少持锁时间
+				workerStarted = true;
+			}
+		}
+	} finally {
+		if (! workerStarted)
+			addWorkerFailed(w);
+	}
+	return workerStarted;
+}
+```
 
 
 
