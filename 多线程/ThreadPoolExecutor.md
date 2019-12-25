@@ -1,9 +1,7 @@
 # ThreadPoolExecutor
 参考： https://www.jianshu.com/p/fa1eac9710c8
 
-## 
-
-
+## 属性介绍
 
 ```
 private static final int COUNT_BITS = Integer.SIZE - 3;
@@ -15,8 +13,9 @@ private static final int SHUTDOWN   =  0 << COUNT_BITS;
 private static final int STOP       =  1 << COUNT_BITS;
 private static final int TIDYING    =  2 << COUNT_BITS;
 private static final int TERMINATED =  3 << COUNT_BITS;
-```	
+```
 
+```
 CAPACITY：  0001 1111 1111 1111 1111 1111 1111 1111
 ~CAPACITY： 1110 0000 0000 0000 0000 0000 0000 0000
 RUNNING：   1010 0000 0000 0000 0000 0000 0000 0000
@@ -24,7 +23,7 @@ SHUTDOWN：  0000 0000 0000 0000 0000 0000 0000 0000
 STOP：      0010 0000 0000 0000 0000 0000 0000 0000
 TIDYING：   0100 0000 0000 0000 0000 0000 0000 0000
 TERMINATED：0110 0000 0000 0000 0000 0000 0000 0000
-
+```
 
 runStateOf(): 获取前3位的运算结果，也就是运行状态
 workerCountOf(): 获取后面29位的运算结果，也就是线程的数量
@@ -33,7 +32,7 @@ ctlOf(int rs, int wc)：函数明显是把经过上述两个步骤的整数结�
 状态值的比较： RUNNING < SHUTDOWN < STOP < TIDYING < TERMINATED
 
 
-```
+```java
 public void execute(Runnable command) {
 	if (command == null)
 		throw new NullPointerException();
@@ -76,23 +75,7 @@ public void execute(Runnable command) {
 	答： 上述方法remove成功了，说明任务还在队列中，可以执行拒绝任务
 
 
-1. 
-rs		  firstTask	queue是否为空  是否执行if语句
-shutdown    null        空			true
-shutdown	null        非空		false
-shutdown	not 		空			true
-shutdown	not			非空		true
-STOP		null		空			true
-STOP		null		非空		true
-STOP		not			空			true
-STOP		not			非空		true
-
-可以换成：
-if(rs != SHUTDOWN || firstTask != null || workQueue.isEmpty()){
-
-}
-
-```
+```java
 private boolean addWorker(Runnable firstTask, boolean core) {
 	// 反复尝试增加工作线程数量
 	retry:
@@ -101,7 +84,7 @@ private boolean addWorker(Runnable firstTask, boolean core) {
 		int rs = runStateOf(c);
 
 		// Check if queue empty only if necessary.
-		// 只有队列为非空，才不会直接返回
+		// 只有队列为非空，才不会直接返回，见表格1
 		if (rs >= SHUTDOWN && // 线程池停止了
 			! (rs == SHUTDOWN &&
 			   firstTask == null &&
@@ -111,7 +94,7 @@ private boolean addWorker(Runnable firstTask, boolean core) {
 		for (;;) {
 			int wc = workerCountOf(c);
 			if (wc >= CAPACITY ||
-				wc >= (core ? corePoolSize : maximumPoolSize)) // 如果线程数超过，则返回
+				wc >= (core ? corePoolSize : maximumPoolSize)) // 如果线程数超标，则返回
 				return false;
 			if (compareAndIncrementWorkerCount(c)) // 使用乐观锁，增加工作线程数量，增加成功结束外层循环。这里不直接调用incr方法，是怕在增加之后，线程池状态变了
 				break retry;
@@ -162,6 +145,100 @@ private boolean addWorker(Runnable firstTask, boolean core) {
 	return workerStarted;
 }
 ```
+
+1.  上述语句的执行结果，表格1：
+
+|    rs    | firstTask | queue是否为空 | 是否执行if语句 |
+| :------: | :-------: | :-----------: | :------------: |
+| shutdown |   null    |      空       |      true      |
+| shutdown |   null    |     非空      |     false      |
+| shutdown |    not    |      空       |      true      |
+| shutdown |    not    |     非空      |      true      |
+|   STOP   |   null    |      空       |      true      |
+|   STOP   |   null    |     非空      |      true      |
+|   STOP   |    not    |      空       |      true      |
+|   STOP   |    not    |     非空      |      true      |
+
+可以换成：
+```java
+if(rs != SHUTDOWN || firstTask != null || workQueue.isEmpty()){
+
+}
+```
+
+总结： 
+1. 增加工作线程数量的操作包含两步，原本是可以通过一个锁就完成了的，变成了使用【乐观锁】+【原子操作】来完成，从而达到了减小锁的粒度
+	* 判断工作线程的数量是否超标
+	* 增加工作线程的数量（原子操作）
+   
+	
+3. 如果我来写：
+	* 创建工作线程
+	* 锁： 加入工作线程集合
+	* 加入工作线程集合
+	* 开启线程
+	* 开始失败处理
+   如果我来写：
+    * 创建工作线程
+    * 锁：加入工作线程集合
+	* 锁：开启线程
+	* 锁：开始失败处理
+
+
+
+```
+final void tryTerminate() {
+	for (;;) {
+		int c = ctl.get();
+		if (isRunning(c) ||
+			runStateAtLeast(c, TIDYING) ||
+			(runStateOf(c) == SHUTDOWN && ! workQueue.isEmpty()))
+			return;
+		if (workerCountOf(c) != 0) { // Eligible to terminate
+			interruptIdleWorkers(ONLY_ONE);
+			return;
+		}
+
+		final ReentrantLock mainLock = this.mainLock;
+		mainLock.lock();
+		try {
+			if (ctl.compareAndSet(c, ctlOf(TIDYING, 0))) {
+				try {
+					terminated();
+				} finally {
+					ctl.set(ctlOf(TERMINATED, 0));
+					termination.signalAll();
+				}
+				return;
+			}
+		} finally {
+			mainLock.unlock();
+		}
+		// else retry on failed CAS
+	}
+}
+```	
+
+
+
+LockSupport.parkNanos(Object blocker, long nanos): 挂起线程
+
+	1.在调用park()之前调用了unpark或者interrupt则park直接返回，不会挂起。
+	2.如果time <= 0则直接返回。
+	3.如果之前未调用park unpark并且time > 0,则会挂起当前线程，但是在挂起time ms时如果未收到唤醒信号也会返回继续执行。
+	4.park未知原因调用出错则直接返回（一般不会出现）
+
+boolean compareAndSwapObject(Object obj, long offset, Object expect, Object update)
+	1. 原子操作
+
+putOrderedInt 
+设置值 并且马上写入主存，该变量必须是volatile类型
+
+
+
+
+
+
 
 
 
