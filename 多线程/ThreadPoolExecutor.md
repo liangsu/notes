@@ -221,18 +221,7 @@ final void tryTerminate() {
 
 
 
-LockSupport.parkNanos(Object blocker, long nanos): 挂起线程
 
-	1.在调用park()之前调用了unpark或者interrupt则park直接返回，不会挂起。
-	2.如果time <= 0则直接返回。
-	3.如果之前未调用park unpark并且time > 0,则会挂起当前线程，但是在挂起time ms时如果未收到唤醒信号也会返回继续执行。
-	4.park未知原因调用出错则直接返回（一般不会出现）
-
-boolean compareAndSwapObject(Object obj, long offset, Object expect, Object update)
-	1. 原子操作
-
-putOrderedInt 
-设置值 并且马上写入主存，该变量必须是volatile类型
 
 
 

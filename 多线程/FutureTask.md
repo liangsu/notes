@@ -130,7 +130,7 @@ private void finishCompletion() {
 	
 6. cancel方法
 
-```
+```java
 public boolean cancel(boolean mayInterruptIfRunning) {
 	// 当线程是新增，则尝试执行取消任务
 	if (!(state == NEW &&
@@ -167,7 +167,7 @@ public boolean cancel(boolean mayInterruptIfRunning) {
 	
 7. awaitDone方法
 
-```
+```java
 /**
  * Awaits completion or aborts on interrupt or timeout.
  *
@@ -215,7 +215,9 @@ private int awaitDone(boolean timed, long nanos)
 	
 	疑问：1. 注释中的3，在任务执行完成后，为什么不执行removeWaiter(q)这个方法
 			答： 在执行方法removeWaiter的时候，会自动将WaitNode.thread为空的移除掉
-	
+		  2. 创建WaitNode，和将WaitNode加入链表本可以做成在一个if中来完成，为什么要放到两个if中
+			答： 我的理解，刚创建WaitNode，然后在加入链表，加入列表的操作可能会因为并发的问题导致加入错误，
+			    下次继续加入的话又要重新创建WaitNode，分成两步可以避免频繁重新创建相同的对象
 	
 	
 	
