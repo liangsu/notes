@@ -1,6 +1,14 @@
 # feign
 > 参考： https://blog.csdn.net/lgq2626/article/details/80392914
 	http://springcloud.cn/view/409
+	
+	feign的创建步骤大体分为：
+	1. 注册FeignClient配置类和FeignClient BeanDefinition
+	2. 实例化Feign上下文对象FeignContext 
+	3. 创建 Feign.builder 对象 
+	4. 生成负载均衡代理类 
+	5. 生成默认代理类 
+	6. 注入到spring容器
 
 ## 1.feign调用关键类：
 
@@ -22,12 +30,26 @@
 
 1. 通过springboot的spi机制加载，对应配置文件spring.factories
 
-2. 作用：产生FeignContext
+2. 作用：
+	2.1 根据FeignClientSpecification，创建FeignContext
+	2.2 创建Targeter，扩展用于根据hystrix创建不同特征的代理对象
+	2.3 创建http客户端对象，ApacheHttpClient、OkHttpClient、Client.Default（默认实现）
 
 ## FeignContext
 
+	继承自： NamedContextFactory
+	关于feign的所有配置基本都是从这里获取的
+
 1. 属性：
 	* List<FeignClientSpecification> configurations： 所有的配置类
+	
+2. 作用：
+	2.1 根据feign的配置类`FeignClientSpecification`创建spring容器`AnnotationConfigApplicationContext`，
+		spring容器除了注册`FeignClientSpecification`指定的配置文件外，还注册了一个默认配置文件，默认配置文件为以下2种中的一种：
+			* FeignClientsConfiguration： 编解码器、Contract（解析feign方法使用）、重试策略、Feign.Builder、FeignLoggerFactory、等
+			* RibbonClientConfiguration： ribbon相关的配置，上面有的这里都有
+			
+	2.2 
 
 ### FeignClientFactoryBean： 
 
@@ -35,7 +57,7 @@
 	* Class<?> type: Feign的接口类
 	* String name:
 	* String url:
-	* String contextId:
+	* String contextId: 比较重要，创建spring容器`AnnotationConfigApplicationContext`的id
 	* String path:
 	* boolean decode404:
 	* ApplicationContext applicationContext: 通过ApplicationContextAware注入
@@ -44,12 +66,17 @@
 
 2. 用于创建feign对象
 
+3. 功能：
+	* 获取FeignContext
+	* 注入：远程调用客户端Client、编解码器、日志、重试策略、拦截器等，主要为构造类`Feign.Builder`填充属性
+
+
 ## Feign.Builder
 1. 属性：
 	* final List<RequestInterceptor> requestInterceptors ： 拦截器
     * Logger.Level logLevel： 日志
-    * Contract contract = new Contract.Default() : 
-    * Client client : 执行http请求的客户端
+    * Contract contract = new Contract.Default() :  解析出方法属性MethodMetadata，用于创建方法的参数解析器
+    * Client client : 执行http请求的客户端，默认使用Client.Default
     * Retryer retryer : 重试策略
     * Logger logger :
     * Encoder encoder = new Encoder.Default():  编码器
@@ -104,11 +131,15 @@
 
 1. 同步方法调用处理类，invoke()负责调用请求
 
-### FeignLoadBalancer：
+### LoadBalancerFeignClient：
+	注意区分： FeignLoadBalancer
 
+作用：
+	1. 内部使用ribbon的方式，实现feign的负载均衡
 
+### FeignLoadBalancer
 
-
+	ribbon的实现
 
 
 ## 调用

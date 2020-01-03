@@ -12,6 +12,8 @@
 
 1.3 private volatile int state;
 	* 一个线程重入锁的次数
+	* 共享锁：被多个线程重入的次数
+	* 排它锁：被单个线程重入的次数
 
 
 1.4 node内部类的介绍
@@ -274,11 +276,16 @@ private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
 	
 	
 	
+```
+SHARED_UNIT：      0000 0000 0000 0001 0000 0000 0000 0000	// 共享锁每次加的值
+MAX_COUNT：        0000 0000 0000 0000 1111 1111 1111 1111	// 锁的最大次数
+EXCLUSIVE_MASK：   0000 0000 0000 0000 1111 1111 1111 1111	// 排它锁的掩码值
+```
 	
+共享锁获取成功： state 增加	
+	失败：增加排队节点
 	
-	
-	
-	
+
 	
 	
 	
