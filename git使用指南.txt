@@ -32,6 +32,15 @@ git config --global https.proxy 'socks5://127.0.0.1:1080'
 /test/**/*.txt
 ```
 
+4. 中文乱码，在输入git status会出现中文乱码的问题，解决办法：
+方式1：
+```
+git config --global core.quotepath false
+```
+
+方式2：
+右键 -- Options -- Text --Character set 选中UTF-8
+
 
 ## 新建仓库
 1. 新建一个项目文件夹
