@@ -26,15 +26,15 @@ ServerList
 ServerListFilter
 	* 过滤服务列表
 
+ServerListUpdater
+	* 更新动态服务列表的策略
+
 IRule
 	* 从可调用的服务列表中，选择调用哪个服务器
 
 ILoadBalancer
 	* 维护服务列表
 	* 选择调用服务
-
-ServerListUpdater
-	* 更新动态服务列表的策略
 
 RetryHandler
 	* 重试策略
@@ -47,19 +47,49 @@ ZoneAwareLoadBalancer
 	* 整合类，整合ILoadBalancer、IRule、ServerListUpdater的类
 
 Server
+	* 服务的信息
 	
 ServerIntrospector
+	* 
 
-FeignLoadBalancer
 	
 LoadBalancerClient
-	
+
 	
 
 
+### LoadBalancerFeignClient：
+	注意区分： FeignLoadBalancer
+
+作用：
+	1. 内部使用ribbon的方式，实现feign的负载均衡
+
+### FeignLoadBalancer
+
+	ribbon的实现
 	
-	
-	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	
 	
 	
