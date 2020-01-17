@@ -57,7 +57,7 @@ sudo yum -y install docker-ce
 
 进入容器： docker exec -it 容器名称/id
 
-查看容器详细信息： docker inspect 容器名称/id
+查看容器详细信息： docker inspect 容器名称/id  /bin/bash
 
 启动容器： docker start 容器名称/id
 停止容器： docker stop  容器名称/id
