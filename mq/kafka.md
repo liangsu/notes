@@ -45,17 +45,27 @@ bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic test --f
 进入容器： docker exec -it 容器名称/id
 
 ## 生产消息
-docker exec hm-kafka /opt/kafka_2.12-2.0.1/bin/kafka-console-producer.sh --broker-list hm-kafka:9092 --topic gps 
+docker exec hm-kafka /opt/kafka_2.12-2.0.1/bin/kafka-console-producer.sh --broker-list hm-kafka:9092 --topic rfid 
 
 
 
 ## 查看topic信息
-docker exec hm-kafka /opt/kafka_2.12-2.0.1/bin/kafka-topics.sh --zookeeper hm-zookeeper --describe --topic gps
+docker exec hm-kafka /opt/kafka_2.12-2.0.1/bin/kafka-topics.sh --zookeeper hm-zookeeper --describe --topic rfid
+
+查看所有的消费组：
+docker exec hm-kafka /opt/kafka_2.12-2.0.1/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --list
+
+查看某个消费组的消费情况：
+docker exec hm-kafka /opt/kafka_2.12-2.0.1/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group fence-server
+
+
 
 ## 查看topic的内容
 
-* docker exec hm-kafka /opt/kafka_2.12-2.0.1/bin/kafka-console-consumer.sh --bootstrap-server hm-kafka:9092 --topic gps --from-beginning
-* docker exec hm-kafka /opt/kafka_2.12-2.0.1/bin/kafka-console-consumer.sh --bootstrap-server hm-kafka:9092 --topic gps --new-consumer --partition 0 --offset 20
+* docker exec hm-kafka /opt/kafka_2.12-2.0.1/bin/kafka-console-consumer.sh --bootstrap-server hm-kafka:9092 --topic rfid --from-beginning
+* docker exec hm-kafka /opt/kafka_2.12-2.0.1/bin/kafka-console-consumer.sh --bootstrap-server hm-kafka:9092 --topic rfid --new-consumer --partition 0 --offset 1447
+
+docker exec hm-kafka /opt/kafka_2.12-2.0.1/bin/kafka-console-consumer.sh --bootstrap-server hm-kafka:9092 --topic rfid --partition 0 --offset 1447
 
 
 docker exec hm-kafka /opt/kafka_2.12-2.0.1/bin/kafka-console-consumer.sh --zookeeper hm-zookeeper --topic gps --from-beginning
