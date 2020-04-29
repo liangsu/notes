@@ -70,6 +70,8 @@ docker inspect --format='{{.NetworkSettings.IPAddress}}' hm-zookeeper
 
 
 
+### 常见问题：
+1. 安装mysql时区不正确：  https://www.cnblogs.com/luodengxiong/p/11374495.html
 
 
 

@@ -2,11 +2,11 @@
 * 启用spring aop方式
 	* 注解：	@EnableAspectJAutoProxy
 	* 配置文件：<aop:aspectj-autoproxy/>
-
+	
 
 * 代理增强核心类： org.springframework.aop.aspectj.annotation.AnnotationAwareAspectJAutoProxyCreator
 
-
+* 获取暴露的代理对象： AopContext
 
 ## 切点pointcut
 * spring在扫描到pointcut配置时，会为pointcut生成一个RootBeanDefinition，beanClass是AspectJExpressionPointcut，Scope是prototype
