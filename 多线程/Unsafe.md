@@ -33,4 +33,4 @@ LockSupport.parkNanos(Object blocker, long nanos): 挂起线程
 	
 	
 	
-	
+jmap -dump:format=b,file=C:\Users\Administrator\Desktop\upload_tmp\heap.bin 10976

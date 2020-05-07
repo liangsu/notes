@@ -41,6 +41,49 @@ handlerMapping： 用于获取要执行的HandlerExecutionChain、以及该handl
 
 
 
+初始化：
+org.springframework.web.servlet.FrameworkServlet#initServletBean
+
+org.springframework.web.servlet.FrameworkServlet#initWebApplicationContext
+
+org.springframework.web.servlet.FrameworkServlet#onRefresh
+org.springframework.web.servlet.DispatcherServlet#onRefresh
+
+org.springframework.web.servlet.DispatcherServlet#initStrategies
+
+org.springframework.web.servlet.DispatcherServlet#initLocaleResolver
+
+
+返回对象序列化：
+org.springframework.web.servlet.HandlerAdapter#handle
+	org.springframework.web.method.support.HandlerMethodReturnValueHandlerComposite#handleReturnValue
+		org.springframework.web.servlet.mvc.method.annotation.AbstractMessageConverterMethodProcessor#writeWithMessageConverters()
+			org.springframework.http.converter.HttpMessageConverter#write
+
+
+
+1. Context继承： springmvc的context的父context继承自RootWebApplicationContext
+
+
+
+
+国际化：
+org.springframework.web.servlet.FrameworkServlet#doGet
+
+org.springframework.web.servlet.FrameworkServlet#processRequest
+
+org.springframework.web.servlet.FrameworkServlet#buildLocaleContext
+org.springframework.web.servlet.DispatcherServlet#buildLocaleContext
+
+
+
+
+
+
+
+
+
+
 
 
 
