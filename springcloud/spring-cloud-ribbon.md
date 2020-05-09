@@ -30,10 +30,10 @@ ServerListUpdater
 	* 更新动态服务列表的策略
 
 IRule
-	* 从可调用的服务列表中，选择调用哪个服务器
+	* 从可调用的服务列表中，选择调用哪个服务器，即选择调用服务的算法
 
 ILoadBalancer
-	* 维护服务列表
+	* 维护服务列表，给IRule提供服务列表
 	* 选择调用服务
 
 RetryHandler
@@ -72,6 +72,7 @@ LoadBalancerClient
 
 
 
+user-service.ribbon.NFLoadBalancerRuleClassName: com.netflix.loadbalancer.RandomRule
 
 
 
@@ -79,12 +80,12 @@ LoadBalancerClient
 
 
 
+PredicateBasedRule
+DynamicServerListLoadBalancer
 
+NacosServerList
 
-
-
-
-
+PollingServerListUpdater
 
 
 
