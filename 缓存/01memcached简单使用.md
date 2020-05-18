@@ -89,11 +89,13 @@ STAT reclaimed 0
 ## 三、memcached内存管理
 * 参考： http://blog.csdn.net/hguisu/article/details/7353482
 * Slab Allocation机制：整理内存以便重复使用
-
 * Slab Allocation的原理相当简单：
-
 * 1）首先，像一般的内存池一样,  从操作系统分配到一大块内存。
 * 2）将分配的内存分割成各种尺寸的块（chunk），并把尺寸相同的块分成组（chunk的集合），chunk的大小按照一定比例逐渐递增
+
+
+
+* 下面一行的含义：每个chunk 96个字节，10922个chunk组成一个slab
 
 ```
 slab class   1: chunk size        96 perslab   10922
@@ -145,7 +147,7 @@ slab class  42: chunk size   1048576 perslab       1
 我的疑问：
 1. 如果开始存的在slab仓库为96中，后来set为了大于96的字符，这会怎么存储？
 
-
+    答：会将该值从这个slab转移到另一个slab存储
 
 ### 四、数据过期
 1. 当某个值过期后，并没有从内存删除，因此stats统计时，curr_item有其信息
@@ -193,7 +195,7 @@ slab class  42: chunk size   1048576 perslab       1
 2. 模拟老数据被踢现象
 
 ## 扩展
-1. memcache实现并发所
+1. memcache实现并发锁
 2. session同步
 
 ## memcache的使用：
