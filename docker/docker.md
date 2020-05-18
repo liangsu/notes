@@ -73,9 +73,20 @@ docker inspect --format='{{.NetworkSettings.IPAddress}}' hm-zookeeper
 ### 常见问题：
 1. 安装mysql时区不正确：  https://www.cnblogs.com/luodengxiong/p/11374495.html
 
+my.cnf文件：
+```
+default-time-zone = '+8:00'
+```
 
+Dockerfile:
+```
+FROM mysql:5.7.22
 
-
+ADD *.sql /home/
+ADD *.sh /home/
+ADD mysql.cnf /etc/mysql/conf.d/
+RUN chmod +x /home/init.sh
+```
 
 
 
