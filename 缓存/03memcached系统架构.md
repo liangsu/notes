@@ -39,7 +39,7 @@
 
     * 单向链表，插入时采用头部插入法插入链表中
 
-    ![](E:\学习笔记\缓存\03.02mc中hash表结构.png)
+    ![](03.02mc中hash表结构.png)
 
  4. hash扩容时机：当表中 Item 数量大于哈希表 bucket 节点数的 1.5 倍时，就对哈希表进行扩容
 
@@ -74,6 +74,14 @@
 ### 1.4 LRU机制
 
 > 参考： https://www.freesion.com/article/9030435024/
+
+1.  每个item 有一个 flag，标识其活跃程度：
+
+   * FETCHED： 如果一个 item 有请求操作，其 flag 等于 FETCHED
+   * ACTIVE： 如果一个 item 第二次被请求则会标记为 ACTIVE；当一个 item 发生 bump（碰撞） 或被移动了，flag 会被清空
+   * INACTIVE： 不活跃状态
+
+   
 
  1. 启用分段 LRU 之前，每个 slabclass id 只对应一个 COLD  LRU，在内存不足时，会直接从 COLD LRU 剔除数据
 
