@@ -25,3 +25,15 @@
    * 是 Redis 的默认策略
 2. volatile-lru：
    * 淘汰对象：带过期时间的 key 
+
+
+
+
+
+## 问题：
+
+1. 使用volatile-lru进行淘汰时，随机选取N个key，计算idle值，放入evictionPool，选择空闲时间最久的进行淘汰。这样是否会出现，没有被选中的key中，存在这空闲时间更久的未淘汰的key？
+
+   答： 
+
+2. 
