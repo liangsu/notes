@@ -94,3 +94,25 @@ AttributeAccessor：元数据操作的api
 
 source
 
+
+
+obtainFreshBeanFactory()
+	获取BeanFactory，没有BeanFactory创建BeanFactory，如果是xml的实现，还会触发解析xml为BeanDefinition
+	需要验证
+	
+
+prepareBeanFactory
+
+contextConfigLocation
+HttpServlet -> FrameworkServlet -> DispatcherServlet
+
+
+ConfigurationClassPostProcessor
+
+ConfigurationClassParser 
+ConfigurationClass
+ComponentScanAnnotationParser
+ClassPathBeanDefinitionScanner
+
+ScannedGenericBeanDefinition
+
