@@ -100,26 +100,161 @@ public interface BeanDefinition extends AttributeAccessor, BeanMetadataElement{
    * 作为模板bd（BeanDefinition简称）
    * 真实的bd
    * 不能作为子db，在设置parentName的时候会报错
+   
 2. ChildBeanDefinition
+   
    * 子bd，构造函数中必须传父bd的名称
+   
 3. GenericBeanDefinition
    * 既可以作为父db，也可以作为子db
    * 真实的bd
+   
+4. AnnotatedGenericBeanDefinition
+
+   * 加了`@Configuration`，然后使用`AnnotatedBeanDefinitionReader#register(AppConfig.class)`生成的bd
+
+   ```java
+   AnnotationConfigApplicationContext ac = 
+       new AnnotationConfigApplicationContext(AppConfig.class);
+   ```
+
+5. ScannedGenericBeanDefinition
+
+   * 通过`@Componet`注解扫描出来的
+
+6. ConfigurationClassBeanDefinition
 
 
 
 扫描、parse、验证、life
 
+## 4. refresh方法
+
+```java
+public void refresh() throws BeansException, IllegalStateException {
+		synchronized (this.startupShutdownMonitor) {
+			// Prepare this context for refreshing.
+			prepareRefresh();
+
+			// Tell the subclass to refresh the internal bean factory.
+			// 获取内部的BeanFactory、如果是xml的BeanFactory，还会扫描xml为BeanDefinition
+			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
+
+			// Prepare the bean factory for use in this context.
+			prepareBeanFactory(beanFactory);
+
+			try {
+				// Allows post-processing of the bean factory in context subclasses.
+				postProcessBeanFactory(beanFactory);
+
+				// Invoke factory processors registered as beans in the context.
+				// 扫描class为BeanDefinition，并调用BeanFactoryPostProcessor
+                // 首先调用spring内置的BeanDefinitionRegistryPostProcessor，扫描		BeanDefinition，然后再调用其它的BeanFactoryPostProcessor
+				invokeBeanFactoryPostProcessors(beanFactory);
+
+				// Register bean processors that intercept bean creation.
+				registerBeanPostProcessors(beanFactory);
+
+				// Initialize message source for this context.
+				initMessageSource();
+
+				// Initialize event multicaster for this context.
+				initApplicationEventMulticaster();
+
+				// Initialize other special beans in specific context subclasses.
+				onRefresh();
+
+				// Check for listener beans and register them.
+				registerListeners();
+
+				// Instantiate all remaining (non-lazy-init) singletons.
+				// 实例化所有单例（非延迟加载的）
+				finishBeanFactoryInitialization(beanFactory);
+
+				// Last step: publish corresponding event.
+				finishRefresh();
+			}
+
+			catch (BeansException ex) {
+				if (logger.isWarnEnabled()) {
+					logger.warn("Exception encountered during context initialization - " +
+							"cancelling refresh attempt: " + ex);
+				}
+
+				// Destroy already created singletons to avoid dangling resources.
+				destroyBeans();
+
+				// Reset 'active' flag.
+				cancelRefresh(ex);
+
+				// Propagate exception to caller.
+				throw ex;
+			}
+
+			finally {
+				// Reset common introspection caches in Spring's core, since we
+				// might not ever need metadata for singleton beans anymore...
+				resetCommonCaches();
+			}
+		}
+	}
+```
 
 
 
 
-rootBeanDefinition 模板、真实的bd
 
-​	不能作为子bd
 
-​	mybatis的一种配置方式
 
-ChildBeanDefinition
+obtainFreshBeanFactory()
+	获取BeanFactory，没有BeanFactory创建BeanFactory，如果是xml的实现，还会触发解析xml为BeanDefinition
+	需要验证???
+	
 
-​	永远作为自bd使用
+prepareBeanFactory
+
+contextConfigLocation
+HttpServlet -> FrameworkServlet -> DispatcherServlet
+
+
+ConfigurationClassPostProcessor
+
+ConfigurationClassParser 
+ConfigurationClass
+ComponentScanAnnotationParser
+ClassPathBeanDefinitionScanner
+
+
+
+AnnotatedBeanDefinitionReader：
+
+​	在spring以注解的方式刚启动的时候，还不知道扫描哪些包，这时候通过调用这个类的register方法，注册spring的配置类（带有@Configuration注解的类）为BeanDefinition，然后再后续spring容器调用refresh方法，执行调用BeanFactoryPostProcessor的时候，根据之前注册的配置bd上的信息，扫描其它的bd
+
+
+
+
+
+精度spring源码，能对spring做二次开发
+
+
+
+depend-check
+
+
+
+beanFactoryPostProcessor:
+
+​	spring内部的、自定义的
+
+​	修改bd、注册bd、修改bean工厂
+
+
+
+
+
+1. bean
+
+
+
+
+
