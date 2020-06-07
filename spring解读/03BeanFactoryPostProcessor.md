@@ -12,16 +12,25 @@
    * 继承自BeanFactoryPostProcessor
    * spring内部的唯一实现内：ConfigurationClassPostProcessor
 2. ConfigurationClassPostProcessor
-   * 作用：扫描class生成BeanDefinition
+   * 作用：扫描带有`@Configuration`注解的类生成BeanDefinition，扫描
 
-## 1. 调用过程
+## 2. BeanFactoryPostProcessor调用过程
 
 > BeanFactoryPostProcessor的关键调用代码在：PostProcessorRegistrationDelegate#invokeBeanFactoryPostProcessors()中
 
 1. 首先调用接口`BeanDefinitionRegistryPostProcessor`的`postProcessBeanDefinitionRegistry`方法，调用顺序是先调用实现了接口`PriorityOrdered`，然后调用实现接口`Ordered`，最后调用没有实现排序接口的。
-   * 目的：在spring内部唯一实现了接口BeanDefinitionRegistryPostProcessor的内是ConfigurationClassPostProcessor，这一步的目的是为了先扫描出基于注解中的所有的BeanDefinition
-   * 内部的BeanDefinitionRegistryPostProcessor注册为BeanDefinition的位置：AnnotatedBeanDefinitionReader的构造方法中
+   * 目的：在spring内部唯一实现了接口`BeanDefinitionRegistryPostProcessor`的内是`ConfigurationClassPostProcessor`，这一步的目的是为了先扫描出基于注解中的所有的`BeanDefinition`
+   
+   * spring内部默认的`BeanDefinitionRegistryPostProcessor`注册为`BeanDefinition`的位置：`AnnotatedBeanDefinitionReader`的构造方法中
+   
+   * 新版mybatis的扩展有基于`BeanDefinitionRegistryPostProcessor`的实现来注册mapper
+   
+     
+   
 2. 调用`BeanDefinitionRegistryPostProcessor`的`postProcessBeanFactory`方法
+
+   
+
 3. 调用普通的`BeanFactoryPostProcessor`，调用顺序：`PriorityOrdered` > `Ordered` > `其它`
 
 ```java
@@ -162,4 +171,39 @@ public static void invokeBeanFactoryPostProcessors(
 		beanFactory.clearMetadataCache();
 	}
 ```
+
+## 3. ConfigurationClassPostProcessor的解析过程
+
+> 该类主要是用于扫描带有configuration的类，根据配置信息扫描注册BeanDefinition。
+>
+> 如果是基于注解的扫描，或者xml配置文件中带有`<context:annotation-config/>`和`<context:component-scan/>`都会启用解析类
+
+### 3.1 子接口方法postProcessBeanDefinitionRegistry
+
+1. 从BeanDefinitionMap（后续简称bdMap）中拿到所有已经注册的bd，过滤出配置类（带有configuration的类，或者一个component类内部带有configuration/component修饰的类）
+
+2. 解析配置类
+   * 首先解析`@Component`注解
+   * 解析`@PropertySources`
+   * 解析` @ComponentScan`和`@ComponentScans`，根据这两个注解配置的包路径扫描出BeanDefinition，并从扫描出的bd中过滤出配置类，递归调用配置类的解析方法
+   * 解析`@Import`
+   * 解析`@ImportResource`
+   * 解析`@Bean`
+   * 如果该类有父类，返回父类，再解析父类
+
+### 3.2 父接口方法postProcessBeanFactory
+
+1. 使用cglib增强带有configuration注解的bd，为这种bd产生代理class，并修改bd的beanClass
+   * 增加的切面BeanMethodInterceptor
+2. 注册BeanPostProcessor：ImportAwareBeanPostProcessor
+
+
+
+spring在解决循环依赖中，放入提前暴露的缓存，为什么是放入一个使用ObjectFactory包裹的对象？
+
+答：在包裹的方法里面有为bean创建代理的步骤
+
+spring的生命周期中有实例化、放入提前暴露的缓存、填充属性、创建代理对象。而spring在解决循环依赖的过程中，是采用前面的步骤，为什么spring在解决循环依赖的时候不采用：实例化、创建代理对象、放入提前暴露的缓存、填充属性的步骤？
+
+
 

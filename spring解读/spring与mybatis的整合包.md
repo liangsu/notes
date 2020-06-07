@@ -44,13 +44,13 @@
 
 ## 四、增加了SqlSessionTemplate的功能
 * 在使用时需要注入SqlSessionFactory，配置文件使用方式如下：
-```
+```xml
 <bean id="sqlSessionTemplate" class="org.mybatis.spring.SqlSessionTemplate">
    <constructor-arg ref="sqlSessionFactory" />
 </bean>
 ```
 * 在spring boot中有对SqlSessionTemplate的自动注入配置,在类MybatisAutoConfiguration中
-```
+```java
   @Bean
   @ConditionalOnMissingBean
   public SqlSessionTemplate sqlSessionTemplate(SqlSessionFactory sqlSessionFactory) {

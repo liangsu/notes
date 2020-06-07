@@ -22,7 +22,7 @@
 
 ## BeanFactoryPostProcessor
 * 描述：对加载的BeanDefinition进行加工，
-* 最经典的配置文件中的${message}进行替换的是：PropertyPlaceholderConfigurer
+* 最经典的配置文件中的${message}进行替换的是：PropertyPlaceholderConfigurer、PropertySourcesPlaceholderConfigurer
 * ConfigurationClassPostProcessor 基于注解的扫描
 
 

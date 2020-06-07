@@ -234,7 +234,11 @@ AnnotatedBeanDefinitionReader：
 
 
 
-精度spring源码，能对spring做二次开发
+精度spring源码，能对spring做二次开发，对spring的各种扩展点有深刻的理解
+
+BeanFactoryPostProcessor 和它的子接口
+
+ImportBeanDefinitionRegister
 
 
 
