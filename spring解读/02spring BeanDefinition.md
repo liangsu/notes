@@ -70,6 +70,21 @@ public interface BeanDefinition extends AttributeAccessor, BeanMetadataElement{
 
 8. factoryBeanName
 
+    * 在使用`@Bean`注解的时候，`@bean`注解所在的类的Bean的名称，`@Bean`方法的名称为factoryMethodName。
+    * 例子：如下，为User产生的BeanDefinition，factoryBeanName为appConfig，factoryMethodName为createUser
+
+    ```java
+    @Confiuration
+    class AppConfig{
+        @Bean
+    	public User createUser(){
+            return new User();
+        }
+    }
+    ```
+
+    
+
 9. factoryMethodName
 
 10. ConstructorArgumentValues
@@ -78,17 +93,17 @@ public interface BeanDefinition extends AttributeAccessor, BeanMetadataElement{
 
 12. initMethodName
 
-     Bean生命周期回调的初始化方法
+      Bean生命周期回调的初始化方法
 
 13. destroyMethodName
 
-     Bean生命周期回调的销毁方法
+      Bean生命周期回调的销毁方法
 
 14. role
 
 15. description
 
-     描述，没什么作用
+      描述，没什么作用
 
 16. 
 
@@ -108,6 +123,7 @@ public interface BeanDefinition extends AttributeAccessor, BeanMetadataElement{
 3. GenericBeanDefinition
    * 既可以作为父db，也可以作为子db
    * 真实的bd
+   * 通过xml配置扫描出来的bd
    
 4. AnnotatedGenericBeanDefinition
 
@@ -123,6 +139,8 @@ public interface BeanDefinition extends AttributeAccessor, BeanMetadataElement{
    * 通过`@Componet`注解扫描出来的
 
 6. ConfigurationClassBeanDefinition
+
+   * 通过`@Bean`扫描出来的
 
 
 

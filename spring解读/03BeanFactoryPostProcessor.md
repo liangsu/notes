@@ -207,3 +207,13 @@ spring的生命周期中有实例化、放入提前暴露的缓存、填充属�
 
 
 
+ImportBeanDefinitionRegistrar
+
+ImportSelector
+
+DeferredImportSelector
+
+@Import
+
+
+
