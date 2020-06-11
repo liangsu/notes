@@ -199,6 +199,18 @@ public static void invokeBeanFactoryPostProcessors(
 
 
 
+ImportBeanDefinitionRegistrar
+
+ImportSelector
+
+DeferredImportSelector
+
+@Import
+
+
+
+## 问题记录
+
 spring在解决循环依赖中，放入提前暴露的缓存，为什么是放入一个使用ObjectFactory包裹的对象？
 
 答：在包裹的方法里面有为bean创建代理的步骤
@@ -207,13 +219,7 @@ spring的生命周期中有实例化、放入提前暴露的缓存、填充属�
 
 
 
-ImportBeanDefinitionRegistrar
 
-ImportSelector
-
-DeferredImportSelector
-
-@Import
 
 
 
