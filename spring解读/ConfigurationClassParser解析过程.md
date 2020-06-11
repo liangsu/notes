@@ -19,6 +19,8 @@
      * 如果是`ImportBeanDefinitionRegistrar`，放入队列
      * 如果是普通类，再次调用【递归的解析配置类和它的父类】
    * 解析@ImportResource
+   * 解析@Bean methods
+   * 解析父类
 
 
 
