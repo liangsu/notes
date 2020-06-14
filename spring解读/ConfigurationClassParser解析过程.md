@@ -3,7 +3,7 @@
 简介：
         这个类用于解析被`@configuration`注解的类，将解析的结果放到`ConfigurationClass`中，一个配置类（被`@configuration`注解的类）可能会解析出多个`ConfigurationClass`，因为这个配置类中可能通过使用`@Import`导入其它的配置类
 
-　　这个类有助于将解析配置类和注册BeanDefinition分离(除了`@ComponentScan`注解需要立即被注册)
+　　这个类有助于将解析配置类和注册`BeanDefinition`分离(除了`@ComponentScan`注解需要立即被注册)
 
 　　这个基于asｍ的实现避免了反射和急于加载类，以便与Spring ApplicationContext中的延迟类加载有效地互操作
 
@@ -11,15 +11,15 @@
 
 1. 递归的解析配置类和它的父类
    * 递归解析所有的Component注解（@configuration也是被Component标记的）
-   * 解析PropertySources、PropertySource
-   * 解析@ComponentScan、ComponentScan，并扫描注册bd，再从扫描出的bd中找出配置类，再次调用【递归的解析配置类和它的父类】
+   * 解析`PropertySources`、`PropertySource`
+   * 解析`@ComponentScan`、`ComponentScan`，并扫描注册bd，再从扫描出的bd中找出配置类，再次调用【递归的解析配置类和它的父类】
    * 解析@Import注解
      * 如果是`ImportSelector`，调用接口方法，获取所有的类名，再次调用【递归的解析配置类和它的父类】
      * 如果是`DeferredImportSelector`，放入延迟加载的队列里面
      * 如果是`ImportBeanDefinitionRegistrar`，放入队列
      * 如果是普通类，再次调用【递归的解析配置类和它的父类】
-   * 解析@ImportResource
-   * 解析@Bean methods
+   * 解析`@ImportResource`
+   * 解析`@Bean methods`
    * 解析父类
 
 
@@ -37,10 +37,10 @@
 1. 常见用途：用于决定启用哪个配置类（被`@configuration`注解的类）
 
 2. 可以实现的下面的这些接口，并且这些接口的方法调用会在`selectImports`之前被调用：
-   	*  EnvironmentAware
-   	*  BeanFactoryAware
-   	*  BeanClassLoaderAware
-   	*  ResourceLoaderAware
+    *  EnvironmentAware
+    *  BeanFactoryAware
+    *  BeanClassLoaderAware
+    *  ResourceLoaderAware
 3. 或者可以提供一个构造函数，带有下面的这些参数类型：
    * Environment
    * BeanFactory
@@ -60,3 +60,12 @@
 2. 和上面的两个类一样，也是通过`Import`导入
 3. 和接口`ImportSelector`、`DeferredImportSelector`一样，也可以实现上面的`Aware`的接口，或者构造函数
 
+### 1.4 区别
+
+区别：
+
+1. `ImportSelector`、`DeferredImportSelector`通常导入的是一个配置类，包含很多其它的配置，`ImportBeanDefinitionRegistrar`导入的通常是某一个或几个BeanDefinition
+
+### 1.5 使用场景
+
+1. 

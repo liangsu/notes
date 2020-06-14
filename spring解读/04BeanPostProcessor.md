@@ -7,15 +7,27 @@
 3. 整理各个bpp的作用
 4. bbp的扩展点
 
-## 
+## 分类
+
+1. BeanPostProcessor
+   * postProcessBeforeInitialization
+   * postProcessAfterInitialization
+2. SmartInstantiationAwareBeanPostProcessor
+   * determineCandidateConstructors
+   * getEarlyBeanReference
+3. MergedBeanDefinitionPostProcessor
+4. InstantiationAwareBeanPostProcessor
+5. 
 
 
 
 
 
+BeanFactoryAdvisorRetrievalHelperAdapter
 
+ReflectiveAspectJAdvisorFactory
 
-
+BeanFactoryAspectJAdvisorsBuilderAdapter
 
 
 
