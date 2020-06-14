@@ -6,3 +6,43 @@
 搞懂import的几个类的使用场景
 
 
+5. 编写一个BeanDefinitionRegistar使用componet能否注册成功，需要查看import解析的代码能否提取到？
+答：不能注册成功
+
+spring通过构造方法实例化bean的原理
+推断构造方法，
+	自动注入：
+	手动注入：
+		在调用后置处理器第一次推断构造方法
+			如果没有提供构造方法，可用的构造方法为null
+			如果提供了默认的构造方法，且只有一个，也为null
+			提过了多个构造方法，也返回null
+			过个构造方法，@auto
+			
+			
+			
+有被@Autowire标记的构造方法：
+	* 如果有@Autowired(required = true)，则只返回一个，如果有多个则报错
+	* 如果没有@Autowired(required = true)，则返回@Autowired+默认构造方法
+	
+没有@Autowire标记的构造方法：
+	* 只有一个造方法
+		* 有参构造方法：返回
+		* 无参构造方法：
+			* 主构造方法：  返回主构造方法
+			* 非主构造方法： 返回null
+			
+	* 有两个构造方法：
+		* 主构造方法 + 默认构造方法
+		* 
+		* 主构造方法 != 默认构造方法： 返回 2个
+		
+	* 其它情况：返回null
+	
+		
+如果有@Autowired(required = true)标记的构造方法，则返回被@Autowired(required = true)标记的构造方法，
+否则返回@Autowired(required = false)的构造方法，如果被@Autowired(required = false)标记的构造方法有多个，则尽可能选择参数更多的构造方法
+如果没有被@Autowired标记的构造方法，则返回Primary/default构造方法，因为如果这时候有多个构造方法，spring不知道使用哪个构造方法，所以只能使用默认的构造方法
+
+
+验证构造方法如果是 0 1 1、 0 1 1 3的情况
