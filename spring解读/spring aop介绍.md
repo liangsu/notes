@@ -1,8 +1,28 @@
-# spring aop
+## Aspect Oriented Programming with Spring（面向切面编程）
 
-## 编程方式创建aop代理对象
+在程序结构设计中面向切面编程（aop）是对面向对象编程（oop）的补充。在oop中模块化的单元是类，而在aop中模块化的单元时aspect。aspect的模块化关注点横跨了多个类或者对象（如事务管理）。在aop的文献中，这样的关注点通常被称为“crosscutting”（横切）
 
-```
+## 1. AOP概念
+
+让我们从定义一些核心的AOP概念和术语开始。这些术语并不是spring特有的。不幸的是，AOP术语不是特别直观。但是，如果Spring使用自己的术语，会更令人困惑了。
+
+* Aspect：  切面，跨多个类的关注点的模块化。事务管理是企业级Java应用程序中横切关注点的一个很好的例子。在Spring AOP中，切面是通过使用常规类(基于模式的方法)或使用@Aspect注释的常规类(或者@AspectJ风格)来实现的
+* Join point： 连接点，程序执行期间的一个点，如方法执行或异常处理期间的一个点。在Spring AOP中，连接点总是表示方法执行。（某个方法上运行）
+* Advice： 通知（动作），切面在特定连接点上执行的动作。不同类型的advice包括“around”、“before”和“after”的advice。(稍后讨论通知类型。)许多AOP框架(包括Spring)将advice建模为拦截器，并围绕连接点维护拦截器链（方法之前、之后运行的动作）
+* Pointcut：切入点，匹配连接点的谓词。通知与切入点表达式相关联，并在与切入点匹配的任何连接点上运行(例如，具有特定名称的方法的执行)。
+  	与连接点相匹配的切入点是AOP的核心概念，Spring在默认情况下使用AspectJ风格作为切入点表达式。（在哪些方法上运行）
+* Introduction：声明一个类的额外的方法或者属性。Spring AOP允许向任何被通知的对象（被代理的对象）引入新的接口(以及相应的实现)。例如，您可以使用一个Introduction使一个bean实现一个IsModified接口，以简化缓存。(在AspectJ社区中，Introduction称为inter-type declarations（进入类的声明）。
+* Target object： 目标对象，被一个或多个切面通知的对象。也称为“advised object”。因为Spring AOP是通过使用运行时代理实现的，所以这个对象经常是一个代理对象。
+* AOP proxy： AOP框架为了实现切面(通知方法的执行等等)而创建的对象。在Spring框架中，AOP代理由JDK动态代理或CGLIB代理实现
+* Weaving： 织入，将切面与程序中的类或者对象联系起来创建advised object。这可以在编译时(如AspectJ编译器)、加载时或运行时完成。与其他纯Java AOP框架一样，**Spring AOP是在运行时执行织入**。
+
+
+
+## 2. 以编程方式创建aop代理对象
+
+除了使用`<aop:config>`和`<aop:aspectj-autoproxy>`定义切面外，还可以使用编程的方式创建代理对象（advise target object）。
+
+```java
 public static void aop(){
 	AA targeObject = new AA();
 	// create a factory that can generate a proxy for the given target object
@@ -21,10 +41,13 @@ public static void aop(){
 }
 ```
 
-## PointCut api
+## 3. spring aop的api
 
-1. PointCut
-```
+### 3.1 PointCut api
+
+#### 概念
+
+```java
 public interface Pointcut {
 
     ClassFilter getClassFilter();
@@ -60,17 +83,16 @@ MethodMatcher：
 	`isRuntime`用于控制3个参数的matches方法是否执行，如果返回false，3个参数的方法永远不会执行，返回true，3个参数的方法才会在每次方法调用的时候执行
 	`matches(Method, Class, Object[])`这个方法是再每次方法调用的时候执行，通过参数判断是否执行advice
 
-
-2. pointcut上的操作
+#### pointcut上的操作
 
 spring支持在pointcut上适用交集、并集。
 交集：每个pointcut匹配都可以，并集：任意一个pointcut匹配都可以。你可以使用`Pointcuts`或者`ComposablePointcut`去编排你的pointcut。但是使用aspect的表达式风格的仅支持简单的操作
 
-3. AspectJ Expression Pointcuts （AspectJ表达式的pointcut）
+#### AspectJ Expression Pointcuts （AspectJ表达式的pointcut）
 
 从spring2.0开始pointcut的实现是通过`AspectJExpressionPointcut`，使用了aspject的库提供的表达式风格
 
-4. 便利的pointcut的实现方式
+#### 便利的pointcut的实现方式
 
 Static Pointcuts：
 	静态的pointcut是基于类、方法的匹配来判断，不用通过调用的参数来判断是否匹配。
@@ -78,7 +100,7 @@ Static Pointcuts：
 Regular Expression Pointcuts（正则表达式风格的Pointcuts）：
 	实现pointcut的匹配功能的一种方式是使用正则表达式。如`JdkRegexpMethodPointcut`
 
-```
+```xml
 <bean id="settersAndAbsquatulatePointcut" class="org.springframework.aop.support.JdkRegexpMethodPointcut">
     <property name="patterns">
         <list>
@@ -91,11 +113,11 @@ Regular Expression Pointcuts（正则表达式风格的Pointcuts）：
 
 	ControlFlowPointcut
 
-## advice api
+### 3.2 advice api
 
 spring支持几种advice类型，并且可以扩展任意的其它的advice
 
-### Interception Around Advice
+#### Interception Around Advice
 
 在spring中最基本的advice类型是interception around advice
 
@@ -118,7 +140,7 @@ public class DebugInterceptor implements MethodInterceptor {
 
 当调用`MethodInvocation`的`proceed`方法时，会沿着拦截器链执行到join point。在执行`proceed`方法的时候有可能会抛出一个异常
 
-### Before Advice
+#### Before Advice
 
 一种简单的advice类型，在执行方法之前调用，它不需要`MethodInvocation`对象。
 
@@ -135,7 +157,7 @@ public interface MethodBeforeAdvice extends BeforeAdvice {
 
 
 
-## 使用`ProxyFactoryBean`创建aop代理
+## 4. 使用`ProxyFactoryBean`创建aop代理
 
 使用`ProxyFactoryBean`创建aop最大的好处是advice、pointcuts能够被spring的ioc管理。
 
@@ -179,7 +201,7 @@ public interface MethodBeforeAdvice extends BeforeAdvice {
 <bean id="global_performance" class="org.springframework.aop.interceptor.PerformanceMonitorInterceptor"/>
 ```
 
-## 使用`ProxyFactory`创建aop代理
+## 5. 使用`ProxyFactory`创建aop代理
 
 用Spring编程地创建AOP代理很容易。这使您可以使用Spring AOP而不依赖于Spring IoC
 
@@ -192,7 +214,7 @@ MyBusinessInterface tb = (MyBusinessInterface) factory.getProxy();
 
 在`ProxyFactory`（继承自`AdvisedSupport`的方法）上有一些方法添加advice。`AdvisedSupport`是`ProxyFactory`和`ProxyFactoryBean`的父类
 
-## Manipulating Advised Objects（配置advised对象）
+## 6. Manipulating Advised Objects（配置advised对象）
 
 无论你怎么创建AOP代理对象，你都可以使用`org.springframework.aop.framework.Advised`接口来配置它们。此接口包括以下方法：
 
@@ -237,7 +259,7 @@ assertEquals("Added two advisors", oldAdvisorCount + 2, advised.getAdvisors().le
 
 ```
 
-## 使用内置的`auto-proxy`
+## 7. 使用内置的`auto-proxy`
 
 `org.springframework.aop.framework.autoproxy`包提供有自动代理创建器
 
@@ -249,7 +271,7 @@ assertEquals("Added two advisors", oldAdvisorCount + 2, advised.getAdvisors().le
 
 
 
-## 使用TargetSource
+## 8. 使用TargetSource
 
 HotSwappableTargetSource
 
@@ -263,25 +285,7 @@ ThreadLocalTargetSource
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## 其他
+## 9. 其他
 AspectMetadata
 
 
