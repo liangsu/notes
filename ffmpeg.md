@@ -103,6 +103,8 @@ ffmpeg -i a.txt G:\视频\冰雪奇缘2.mp4
 ffmpeg -y -f concat -i a.txt -crf 18 -ar 48000 -vcodec libx264 -c:a aac -r 25 -g 25 -keyint_min 25 -strict -2 G:\视频\冰雪奇缘2.mp4
 
 
+ffmpeg -i https://××××××××/really.m3u8 -c copy    xinxijuzhiwang.mp4 
+
 
 
 

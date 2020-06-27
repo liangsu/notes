@@ -1,0 +1,59 @@
+1. 模拟java调用c代码
+2. 模拟java调用c代码，c代码中反向调用java的方法
+
+
+
+Thread.interupte() interupted
+
+
+1. 偏向锁从一开启，新建的对象就已经是了？
+见《同步.md》
+2. 开启偏向锁、关闭偏向锁的延迟时间
+见《同步.md》
+
+
+
+轻量级锁：
+success = cas markword, 轻量级锁
+if(success){
+
+	同步代码
+}else{
+	
+	调用操作系统的锁
+	set markword = 重量级锁
+	
+	同步代码
+}
+
+
+偏向锁：
+
+if(markword.threadId == myThreadId){
+
+	同步代码
+}else if(markword.锁 == 无锁){
+	success = cas markword, 偏向锁
+	
+	if(success){
+		同步代码
+	}else{
+	
+		获取轻量级
+	
+	}
+}
+
+
+priorityQueue数据结构、定时任务线程池
+编写测试forkjoin、应用场景
+
+
+
+
+
+
+
+
+
+

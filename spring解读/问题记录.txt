@@ -46,3 +46,80 @@ spring通过构造方法实例化bean的原理
 
 
 验证构造方法如果是 0 1 1、 0 1 1 3的情况
+
+
+
+
+
+
+
+BeanReference
+	以抽象公开的方式对bean名称的引用。这个接口并不是对实际bean的引用，只是对bean名称的逻辑引用。
+	常用实现RuntimeBeanReference、RuntimeBeanNameReference
+
+RuntimeBeanReference： 
+	属性值对象的不可变占位符类，对工厂中另一个bean的引用，在运行时解析。
+	在注册bd的时候，如果有个bd的参数依赖了一个容器中的bean，这时在bd中的引用就是用的这个类。
+	BeanDefinitionValueResolver的方法resolveValueIfNecessary能够解析该名称对应的bean。
+
+RuntimeBeanNameReference
+	属性值对象的不可变占位符类，对工厂中另一个bean的引用，在运行时解析。
+	解析出来是个bean的名称，使用场景很少，作用只是校验beanFactory中是否有这么一个bean。
+
+TypeConverter
+BeanDefinitionValueResolver
+
+
+所有的bd最后都会合并为rootBd
+
+getBeanNamesForType
+
+查看bd的合并代码，什么时候会触发合并bd？
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+工作区时长统计：
+reportServer/userTimeStat/queryWorkFenceTimeStat
+参数：startDate
+	  endDate
+	  structureId
+	  
+返回值：
+{
+	data:{
+		"围栏1"： [
+			ViolationStatPO
+		]
+	}
+}
+
+
+
+	  
+
+
+
+
+
+
+
+
+
+
+
+
+
