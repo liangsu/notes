@@ -48,6 +48,15 @@ if(markword.threadId == myThreadId){
 priorityQueue数据结构、定时任务线程池
 编写测试forkjoin、应用场景
 
+sync能实现读写锁吗？
+等待锁的队列与线程阻塞状态的队列一样吗？
+似乎可以
+
+
+CountDownLatch使用场景：
+1. 让多个线程准备好之后一起执行
+2. 等其它的线程执行完成之后再执行
+
 
 
 
