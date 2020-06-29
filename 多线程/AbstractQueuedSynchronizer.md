@@ -1,7 +1,7 @@
 # AbstractQueuedSynchronizer
-	
+
 	CLH
-	
+
 ## 
 
 1. 属性：
@@ -15,9 +15,9 @@
 	* 共享锁：被多个线程重入的次数
 	* 排它锁：被单个线程重入的次数
 
-
 1.4 node内部类的介绍
 		
+
 ```java
 static final class Node {
 	/** 用于标记一个节点在等待共享锁 */
@@ -90,13 +90,14 @@ public final void acquire(int arg) {
 ```
 
 		2.1 获取排他锁
-		
-		
+
+
+​		
 
 3. 方法tryAcquire()
 
-
 3.1 公平锁的实现方式FairSync
+
 ```java
 protected final boolean tryAcquire(int acquires) {
 	final Thread current = Thread.currentThread();
@@ -118,7 +119,7 @@ protected final boolean tryAcquire(int acquires) {
 	return false;
 }
 ```
-	
+
 	返回：获取锁是否成功
 
 
@@ -189,10 +190,10 @@ private Node enq(final Node node) {
 	}
 }
 ```
-	
+
 6. 方法acquireQueued
 
-```
+```java
 /**
  * Acquires in exclusive uninterruptible mode for thread already in
  * queue. Used by condition wait methods as well as acquire.
@@ -222,11 +223,11 @@ final boolean acquireQueued(final Node node, int arg) {
 			cancelAcquire(node);
 	}
 }
-```	
-	
+```
+
 7. 方法
 
-```
+```java
 /**
  * Checks and updates status for a node that failed to acquire.
  * Returns true if thread should block. This is the main signal
@@ -264,62 +265,62 @@ private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
 	return false;
 }
 ```
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+
+
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
 ```
 SHARED_UNIT：      0000 0000 0000 0001 0000 0000 0000 0000	// 共享锁每次加的值
 MAX_COUNT：        0000 0000 0000 0000 1111 1111 1111 1111	// 锁的最大次数
 EXCLUSIVE_MASK：   0000 0000 0000 0000 1111 1111 1111 1111	// 排它锁的掩码值
 ```
-	
+
 共享锁获取成功： state 增加	
 	失败：增加排队节点
 	
 
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
+​	
