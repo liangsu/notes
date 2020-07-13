@@ -1,0 +1,80 @@
+
+https://hllvm-group.iteye.com/group/topic/34932#post-232535
+
+
+总结：happens-before
+
+
+
+cache line与分页的关系：
+答：cache line是高速缓存中对缓存块的称呼，缓存的内容是内存中的一页。缓存大小为64byte
+
+
+
+
+https://wwww.cnblogs.com/z00377750/p/9180644.html
+https://www.cnblogs.com/liushaodong/p/4777308.html
+
+
+对齐提高效率
+合并写
+伪共享代码复现，内容填充
+证明乱序执行
+
+cpu内存屏障
+
+
+https://github.com/bjmashibing/JVM/blob/master/03_01_JMM.md
+
+
+mesi协议： https://blog.csdn.net/ZoeyyeoZ/article/details/51804647?locationNum=13
+
+
+## volatile
+
+问题：加了volatile和没有加volatile的变量，会有什么不同？
+
+1. cpu级别的mesi协议针对的应该是不管你加没加volatile的变量共享的问题，都能够使用到mesi协议
+
+
+2. 是不是该这么理解：
+cpu保证的可见性是，高速缓存与主内存的数据一致性，从而保证了可见性。但cpu并没有保证寄存器与主内存的数据的一致性，
+所以在2个线程同时对一个变量（不管是否是volitale变量）执行+1百万次，最后结果小于2百万
+
+
+3. 如果这么说来，不管是不是volatile变量，cpu都能保证它的可见性。只是volatile还多了一层语义，就是保证有序性。所以可见性不是由volatile保证
+
+
+4. volatile使用的例子：
+volatile a = false;
+线程1
+
+	初始化配置文件
+	a = true;
+	
+线程2
+	if(a){
+		读取配置文件中的值
+	}
+
+
+如果变量a不是volatile，那么有可能先执行【a = true】，然后执行【初始化配置文件】，这时线程2如果判断到a等于true，去执行【读取配置文件中的值】就会出错。
+如果变量a是volatile，那么【初始化配置文件】一定在【a = true】之前执行，这时线程2如果判断到a等于true，去执行【读取配置文件中的值】绝对不会保存。
+所以：
+	volatile能够保证：如果a操作是对volatile变量的写操作，b操作是对volatile变量的读操作，
+	如果a操作先行发生于b操作，那么a操作之前的操作先行发生于b操作之后的操作（这也是happens bofore中的一条规则）
+
+5. 结论：相比较普通变量而言，volatile保证的是有序性
+
+
+
+## volatile的有序性如何保证
+http://gee.cs.oswego.edu/dl/jmm/cookbook.html
+
+
+
+
+
+
+
+

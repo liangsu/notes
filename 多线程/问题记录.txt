@@ -82,31 +82,7 @@ synchronized与aqs锁相比，synchronized是针对0竞争的场景做的优化�
 
 
 
-https://hllvm-group.iteye.com/group/topic/34932#post-232535
 
-
-总结：happens-before
-
-
-
-
-
-
-
-
-https://wwww.cnblogs.com/z00377750/p/9180644.html
-https://www.cnblogs.com/liushaodong/p/4777308.html
-
-cache line与分页的关系 64byte
-对齐提高效率
-合并写
-伪共享代码复现，内容填充
-证明乱序执行
-
-cpu内存屏障
-
-
-https://github.com/bjmashibing/JVM/blob/master/03_01_JMM.md
 
 
 
