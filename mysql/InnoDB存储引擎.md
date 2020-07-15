@@ -232,7 +232,7 @@ InnoDB多版本并发控制(MVCC)处理二级索引与聚集索引不同。聚�
 
 本节介绍InnoDB内存结构和相关主题
 
-### 15.5.1 Buffer Pool（缓冲池）
+### 15.5.1 Buffer Pool
 
 缓冲池是主存中InnoDB缓存被访问的表和索引数据的区域。缓冲池允许直接从内存中处理经常使用的数据，从而加快处理速度。在专用服务器上，高达80%的物理内存通常分配给缓冲池。
 
@@ -256,8 +256,417 @@ InnoDB多版本并发控制(MVCC)处理二级索引与聚集索引不同。聚�
 默认情况下，算法操作如下：
 
 * 3/8的缓冲池用于旧的子列表。
-* 列表的中点是新子列表的尾部与旧子列表的头部之间的边界
+* 列表的中点是新的子列表的尾部与旧的子列表的头部之间的边界
 * 当InnoDB将一个页面读入缓冲池时，它首先将它插入到中间点(旧子列表的头)。一个页面会被读取，当它被用户发起的操作(比如SQL查询)或InnoDB自动执行的预读操作的一部分。
-* 访问旧子列表中的页面使其“年轻”，并将其移动到新子列表的头部。如果页面是由于用户发起的操作需要而读取的，则会立即进行第一次访问，并使页面处于年轻状态。如果由于预读操作读取了该页，那么第一次访问不会立即发生，而且可能在剔除该页之前根本不会发生
-* 在数据库操作时，缓冲池中未被访问的页面将移动到列表的尾部。新的和旧的子列表中的页面都是旧的，其他的页面都是新的。当页面插入到中点时，旧子列表中的页面也会变老。最终，未使用的页面到达旧子列表的尾部并被逐出
+* 访问旧子列表中的页面会使其“年轻”，并将其移动到新子列表的头部。如果页面是由于用户发起的操作需要而读取的，则会立即进行第一次访问，并使页面处于年轻状态。如果由于预读操作读取了该页，那么第一次访问不会立即发生，而且可能在剔除该页之前根本不会发生
+* 在数据库操作时，缓冲池中未被访问的页面将移动到列表的尾部。新的和旧的子列表中的页面都是旧的，其他的页面都是新的。当页面插入到中点时，旧子列表中的页面也会变老。最终，未使用的页面到达旧子列表的尾部并被剔除。
+
+默认情况下，通过查询被读取的页面会立即移动到新的子列表中，这意味着它们在缓冲池中停留的时间更长。例如，对[**mysqldump**](https://dev.mysql.com/doc/refman/8.0/en/mysqldump.html)操作或不带WHERE条件的SELECT语句执行，会将大量数据带入缓冲池，并驱逐同等数量的旧数据，即使这些执行读取的新数据永远不再使用。类似地，由预读后台线程加载且只访问一次的页面被移动到新列表的头部。这些情况可以将经常使用的页面推到旧的子列表中，在那里它们将被逐出。关于优化这个行为的信息，请参见15.8.3.3节“使缓冲池抵抗扫描”（[Making the Buffer Pool Scan Resistant](https://dev.mysql.com/doc/refman/8.0/en/innodb-performance-midpoint_insertion.html)）和15.8.3.4节“配置InnoDB缓冲池预取(预读)”（[Configuring InnoDB Buffer Pool Prefetching (Read-Ahead)”](https://dev.mysql.com/doc/refman/8.0/en/innodb-performance-read_ahead.html)）。
+
+InnoDB标准的监视器输出包含了缓冲池和内存的几个字段，关于缓冲池LRU算法的操作，有关详细信息，请参见使用InnoDB标准监视器监视缓冲池（[Monitoring the Buffer Pool Using the InnoDB Standard Monitor](https://dev.mysql.com/doc/refman/8.0/en/innodb-buffer-pool.html#innodb-buffer-pool-monitoring)）。
+
+#### 缓冲池配置
+
+您可以配置缓冲池的各个方面来提高性能：
+
+* 理想情况下，可以将缓冲池的大小设置为尽可能大的值，从而为服务器上的其他进程留下足够的内存，以便在不发生过度分页的情况下运行。缓冲池越大，InnoDB就越像一个内存中的数据库，从磁盘读取一次数据，然后在随后的读取过程中从内存中访问数据。参见15.8.3.1节“配置InnoDB缓冲池大小”。
+* 在具有足够内存的64位系统上，可以将缓冲池分割为多个部分，以最大限度地减少并发操作之间对内存结构的争用。详情请参阅15.8.3.2节“配置多个缓冲池实例”。
+* 您可以将经常访问的数据保存在内存中，而不考虑将大量不经常访问的数据带入缓冲池的操作导致的活动突然激增。详情请参阅15.8.3.3节“使缓冲池抗扫描”。
+* 您可以控制何时以及如何执行预读请求，以异步地将页面预取到缓冲池中，以预期这些页面将很快被需要。详情请参阅15.8.3.4节“配置InnoDB缓冲池预取(预读)”。
+* 您可以控制何时发生后台刷新，以及是否根据工作负载动态调整刷新速率。详情请参阅15.8.3.5节“配置缓冲池刷新”。
+* 您可以配置InnoDB如何保存当前的缓冲池状态，以避免服务器重启后的长时间预热。详情请参阅15.8.3.6节“保存和恢复缓冲池状态”。
+
+#### 使用InnoDB标准监视器监视缓冲池
+
+InnoDB标准监视器输出，可以使用[`SHOW ENGINE INNODB STATUS`](https://dev.mysql.com/doc/refman/8.0/en/innodb-standard-monitor.html),访问，提供了关于缓冲池操作的指标。缓冲池指标位于InnoDB标准监视器输出的缓冲池和内存部分，看起来类似如下:
+
+```mysql
+----------------------
+BUFFER POOL AND MEMORY
+----------------------
+Total large memory allocated 2198863872
+Dictionary memory allocated 776332
+Buffer pool size   131072
+Free buffers       124908
+Database pages     5720
+Old database pages 2071
+Modified db pages  910
+Pending reads 0
+Pending writes: LRU 0, flush list 0, single page 0
+Pages made young 4, not young 0
+0.10 youngs/s, 0.00 non-youngs/s
+Pages read 197, created 5523, written 5060
+0.00 reads/s, 190.89 creates/s, 244.94 writes/s
+Buffer pool hit rate 1000 / 1000, young-making rate 0 / 1000 not
+0 / 1000
+Pages read ahead 0.00/s, evicted without access 0.00/s, Random read
+ahead 0.00/s
+LRU len: 5720, unzip_LRU len: 0
+I/O sum[0]:cur[0], unzip sum[0]:cur[0]
+```
+
+下表描述了InnoDB标准监视器报告的缓冲池指标。
+
+>注意：
+>
+>在InnoDB标准监视器输出中提供的每秒平均值是基于InnoDB标准监视器输出上一次一次打印后所经过的时间。
+
+表15.2 InnoDB缓冲池指标：
+
+| Name                         | Description                                                  |
+| ---------------------------- | ------------------------------------------------------------ |
+| Total memory allocated       | 分配给缓冲池的总内存，单位：字节。                           |
+| Dictionary memory allocated  | 分配给InnoDB数据字典的总内存，单位：字节。                   |
+| Buffer pool size             | 分配给缓冲池的页的总大小。                                   |
+| Free buffers                 | 缓冲池空闲列表中页的总大小。                                 |
+| Database pages               | 缓冲池LRU列表中的页的总大小。                                |
+| Old database pages           | 缓冲池旧LRU子列表中的页的总大小。                            |
+| Modified db pages            | 缓冲池中当前修改的页数                                       |
+| Pending reads                | 等待读入缓冲池的缓冲池页数。                                 |
+| Pending writes LRU           | The number of old dirty pages within the buffer pool to be written from the bottom of the LRU list. |
+| Pending writes flush list    | The number of buffer pool pages to be flushed during checkpointing. |
+| Pending writes single page   | 缓冲池中挂起的独立页写的数量                                 |
+| Pages made young             | 缓冲池LRU列表中变为年轻的页面总数(移动到“new”页面子列表的头部)。 |
+| Pages made not young         | The total number of pages not made young in the buffer pool LRU list (pages that have remained in the “old” sublist without being made young). |
+| youngs/s                     | The per second average of accesses to old pages in the buffer pool LRU list that have resulted in making pages young. See the notes that follow this table for more information. |
+| non-youngs/s                 | The per second average of accesses to old pages in the buffer pool LRU list that have resulted in not making pages young. See the notes that follow this table for more information. |
+| Pages read                   | The total number of pages read from the buffer pool.         |
+| Pages created                | The total number of pages created within the buffer pool.    |
+| Pages written                | The total number of pages written from the buffer pool.      |
+| reads/s                      | The per second average number of buffer pool page reads per second. |
+| creates/s                    | The per second average number of buffer pool pages created per second. |
+| writes/s                     | The per second average number of buffer pool page writes per second. |
+| Buffer pool hit rate         | The buffer pool page hit rate for pages read from the buffer pool memory vs from disk storage. |
+| young-making rate            | The average hit rate at which page accesses have resulted in making pages young. See the notes that follow this table for more information. |
+| not (young-making rate)      | The average hit rate at which page accesses have not resulted in making pages young. See the notes that follow this table for more information. |
+| Pages read ahead             | The per second average of read ahead operations.             |
+| Pages evicted without access | The per second average of the pages evicted without being accessed from the buffer pool. |
+| Random read ahead            | The per second average of random read ahead operations.      |
+| LRU len                      | The total size in pages of the buffer pool LRU list.         |
+| unzip_LRU len                | The total size in pages of the buffer pool unzip_LRU list.   |
+| I/O sum                      | The total number of buffer pool LRU list pages accessed, for the last 50 seconds. |
+| I/O cur                      | The total number of buffer pool LRU list pages accessed.     |
+| I/O unzip sum                | The total number of buffer pool unzip_LRU list pages accessed. |
+| I/O unzip cur                | The total number of buffer pool unzip_LRU list pages accessed. |
+
+注意：
+
+* 指标`youngs/s`仅适用于旧页面。它基于对页面的访问数量，而不是页面数量。对一个给定页面可以有多次访问，所有访问都被计数。如果在没有发生大型扫描时看到非常低的`youngs/s`值，那么可能需要减少延迟时间，或者增加用于旧子列表的缓冲池的百分比。增加百分比会使旧的子列表更大，因此该子列表中的页面移动到尾部需要更长的时间，这就增加了这些页面再次被访问并变得年轻的可能性。
+* 指标`non-youngs/s`仅适用于旧页面。它基于对页面的访问数量，而不是页面数量。对一个给定页面可以有多次访问，所有访问都被计数。如果在执行大型表扫描时没有看到较高的`non-youngs/s`值(和较高的`young /s`值)，则增加延迟值。
+* `young-making`速率涉及对所有缓冲池页面的访问，而不仅仅是对旧子列表中的页面的访问。`young-making`和未生成率通常不等于总体缓冲池命中率。旧子列表中的页面点击会导致页面移动到新的子列表中，但是新子列表中的页面点击只会导致页面移动到列表的头部，前提是这些页面与头部之间有一定的距离
+* 不是(young-making率)的平均命中率页面访问并没有导致使页面年轻由于[`innodb_old_blocks_time`](https://dev.mysql.com/doc/refman/8.0/en/innodb-parameters.html#sysvar_innodb_old_blocks_time) 没有被定义的延迟满足,或者由于新子列表页面点击没有导致页面被搬到了头。这个速率用于访问所有缓冲池页面，而不仅仅是访问旧子列表中的页面。
+
+缓冲池服务器状态变量和`INNODB_BUFFER_POOL_STATS`表提供了许多与InnoDB标准监视器输出相同的缓冲池指标。有关更多信息，请参见示例15.10“查询`INNODB_BUFFER_POOL_STATS`表”。
+
+### 15.5.2 Change Buffer
+
+修改缓冲区是一种特殊的数据结构，用来缓存没有在buffer pool中的二级索引页的修改。这些更改可能来自insert、delete、update操作（DML），change buffer中的数据会被合并到buffer pool中去当有其它的读取操作读取时。
+
+图15.3修改缓冲区
+
+![](innodb-change-buffer.png)
+
+与聚集索引不同，辅助索引通常不是唯一的，插入到辅助索引中的顺序相对随机。类似地，删除和更新可能会影响二级索引页。当其他操作将受影响的页读入缓冲池时，在稍后合并缓存的更改，可以避免将辅助索引页从磁盘读入缓冲池所需的大量随机访问I/O。
+
+当系统大部分时间处于空闲状态时或在缓慢关闭（slow shutdown，关机的时候）期间，清除操作会将更新后的索引页写入磁盘。与将每个值立即写入磁盘相比，清除操作可以更有效地写入一系列索引值的磁盘块。
+
+当有许多受影响的行和大量二级索引需要更新时，更改缓冲区合并可能需要几个小时。在此期间，磁盘I/O会增加，这可能导致磁盘绑定查询的速度显著减慢。更改缓冲区合并也可能在事务提交后继续发生，甚至在服务器关闭和重新启动之后(参见15.21.2节，“强制InnoDB恢复”更多信息)。
+
+在内存中，更改缓冲区占用了缓冲池的一部分。在磁盘上，更改缓冲区是system表空间的一部分，当数据库服务器关闭时，修改的缓存将在磁盘上存储。
+
+在修改缓冲区中的数据类型由[`innodb_change_buffering`](https://dev.mysql.com/doc/refman/8.0/en/innodb-parameters.html#sysvar_innodb_change_buffering)变量控制。有关更多信息，请参见配置更改缓冲。您还可以配置最大修改缓冲区大小。有关更多信息，请参见配置更改缓冲区的最大大小。
+
+如果辅助索引包含降序索引列，或者主键包含降序索引列，则不支持更改缓冲
+
+关于更改缓冲区的常见问题，请参阅A.16，“MySQL 8.0 FAQ: InnoDB更改缓冲区”。
+
+#### 配置change buffer
+
+在表上执行插入、更新和删除操作时，索引列的值(特别是辅助键的值)通常是无序的，需要大量的I/O来使辅助索引来保持最新。当相关的二级索引页不在缓冲池中时，对它的修改将被缓存到change buffer，因此不必立即从磁盘读取页，从而避免了昂贵的I/O操作。当页面加载到缓冲池中时，缓冲的更改将被合并，更新后的页面稍后将刷新到磁盘。InnoDB的主线程在服务器接近空闲时和慢速关机时合并缓冲变化。
+
+因为它可以减少磁盘读写，所以change buffer的特性对于I/ o限制的工作负载最有价值，例如具有大量DML操作(如批量插入)的应用程序。
+
+但是，更改缓冲区占用了缓冲池的一部分，减少了用于缓存数据页的可用内存。如果工作集几乎发生在buffer pool，或者如果表的二级索引相对较少，那么禁用change buffer可能会很有用。如果工作数据集完全在缓冲池，则change buffer不会带来额外的开销，因为它只适用于不在缓冲池中的页面。
+
+您可以使用`innodb_change_buffering`配置参数来控制InnoDB使用change buffer的程度。您可以启用或禁用insert、delete操作(当索引记录最初被标记为删除时)和purge操作(当索引记录被物理删除时)的缓冲。更新操作是插入操作和删除操作的组合。默认的`innodb_change_buffering`值是all。
+
+允许innodb_change_buffering值包括:
+
+* all：默认值:缓冲区插入、删除标记操作和清除。
+* none：不缓冲任何操作
+* **`inserts`**：缓冲插入操作
+* **`changes`**：缓冲插入和删除标记操作
+* **`purges`**：缓冲在后台发生的物理删除操作
+
+可以在MySQL选项文件(my.cnf或my.ini)中设置innodb_change_buffering参数，也可以使用set GLOBAL语句动态地修改它，这需要足够的权限来设置全局系统变量。参见5.1.9.1节“系统可变权限”。改变设置会影响新操作的缓冲;现有缓冲项的合并不受影响
+
+#### 配置change buffer的最大大小
+
+`innodb_change_buffer_max_size`变量允许将更改缓冲区的最大大小配置为缓冲池总大小的百分比。默认情况下，`innodb_change_buffer_max_size`设置为25。最大设置为50。
+
+考虑增加`innodb_change_buffer_max_size`在一个有大量插入、更新和删除活动的MySQL服务器上，其中更改缓冲区合并跟不上新的更改缓冲区条目，导致更改缓冲区达到其最大大小限制。
+
+考虑减小`innodb_change_buffer_max_size`的值，当mysql服务上的数据是用于报表的静态数据的时候，或者如果change buffer消耗了太多的buffer pool共享的内存空间，导致页面比预期更快地从缓冲池中老化。
+
+使用具有代表性的工作负载测试不同的设置，以确定最佳配置。`innodb_change_buffer_max_size`的设置是动态的，允许在不重启服务器的情况下进行修改。
+
+#### 监控change buffer
+
+以下选项可用于更改缓冲区监视：
+
+* InnoDB标准监视器输出包括有change buffer的状态信息。要查看监视器数据，执行`SHOW ENGINE INNODB STATUS`。
+
+  ```mysql
+  mysql> SHOW ENGINE INNODB STATUS\G
+  ```
+
+  改变缓冲区状态信息位于`INSERT BUFFER`和`ADAPTIVE HASH INDEX`（自适应哈希索引）标题下，类似如下:
+
+  ```mysql
+  -------------------------------------
+  INSERT BUFFER AND ADAPTIVE HASH INDEX
+  -------------------------------------
+  Ibuf: size 1, free list len 0, seg size 2, 0 merges
+  merged operations:
+   insert 0, delete mark 0, delete 0
+  discarded operations:
+   insert 0, delete mark 0, delete 0
+  Hash table size 4425293, used cells 32, node heap has 1 buffer(s)
+  13577.57 hash searches/s, 202.47 non-hash searches/s
+  ```
+
+  更多信息，见15.17.3节，“InnoDB标准监视器和锁定监视器输出”。
+
+* `INFORMATION_SCHEMA.INNODB_METRICS`表提供了InnoDB标准监视器输出中的大部分数据指标，以及其他数据点。要查看change buffer的指标及其描述，执行以下查询:
+
+  ```mysql
+  mysql> SELECT NAME, COMMENT FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE NAME LIKE '%ibuf%'\G
+  ```
+
+  关于`INNODB_METRICS`表的使用信息，请参见15.15.6节“InnoDB INFORMATION_SCHEMA Metrics表”。
+
+* `INFORMATION_SCHEMA.INNODB_BUFFER_PAGE`表提供了关于缓冲池中每个页面的元数据，包括更改缓冲区索引和更改缓冲区bitmap页面。更改缓冲区页面由`PAGE_TYPE`. `IBUF_INDEX`标志，是用于更改缓冲区索引页的页面类型，`IBUF_BITMAP`是用于更改缓冲区bitmap页的页面类型。
+
+  > 警告：
+  >
+  > 查询`INNODB_BUFFER_PAGE`表会带来显著的性能开销。为避免影响性能，请在测试实例上重现您想要调查的问题，并在测试实例上运行查询。
+
+  例如，可以查询`INNODB_BUFFER_PAGE`表，以确定`IBUF_INDEX`和`IBUF_BITMAP`页面的大致数量占缓冲池页面总数的百分比。
+
+  ```mysql
+  mysql> SELECT (SELECT COUNT(*) FROM INFORMATION_SCHEMA.INNODB_BUFFER_PAGE
+         WHERE PAGE_TYPE LIKE 'IBUF%') AS change_buffer_pages,
+         (SELECT COUNT(*) FROM INFORMATION_SCHEMA.INNODB_BUFFER_PAGE) AS total_pages,
+         (SELECT ((change_buffer_pages/total_pages)*100))
+         AS change_buffer_page_percentage;
+  +---------------------+-------------+-------------------------------+
+  | change_buffer_pages | total_pages | change_buffer_page_percentage |
+  +---------------------+-------------+-------------------------------+
+  |                  25 |        8192 |                        0.3052 |
+  +---------------------+-------------+-------------------------------+
+  ```
+
+  有关`INNODB_BUFFER_PAGE`表提供的其他数据的信息，请参见25.51.1节“the INFORMATION_SCHEMA INNODB_BUFFER_PAGE表”。相关使用信息，请参见15.15.5节“InnoDB INFORMATION_SCHEMA缓冲池表”。
+
+* [Performance Schema](https://dev.mysql.com/doc/refman/8.0/en/performance-schema.html)为高级性能监视提供了更改缓冲区互斥锁等待检测。要查看change buffer的统计，执行以下查询:
+
+  ```mysql
+  mysql> SELECT * FROM performance_schema.setup_instruments
+         WHERE NAME LIKE '%wait/synch/mutex/innodb/ibuf%';
+  +-------------------------------------------------------+---------+-------+
+  | NAME                                                  | ENABLED | TIMED |
+  +-------------------------------------------------------+---------+-------+
+  | wait/synch/mutex/innodb/ibuf_bitmap_mutex             | YES     | YES   |
+  | wait/synch/mutex/innodb/ibuf_mutex                    | YES     | YES   |
+  | wait/synch/mutex/innodb/ibuf_pessimistic_insert_mutex | YES     | YES   |
+  +-------------------------------------------------------+---------+-------+
+  ```
+
+  有关监视InnoDB互斥锁等待的信息，请参见15.16.2节“使用性能模式监视InnoDB互斥锁等待”。
+
+### 15.5.3 自适应哈希索引
+
+当有适当的工作负载且buffer pool有足够的内存的时候，自适应哈希索引使InnoDB更像一个内存数据库，且不会牺牲事务特性或可靠性。自适应哈希索引特性由`innodb_adaptive_hash_index`变量启用，或者在服务器启动时由`--skip-innodb-adaptive-hash-index`关闭。
+
+根据观察到的搜索模式，使用索引键的前缀构建散列索引。前缀可以是任意长度，并且可能只有b树中的某些值出现在哈希索引中。散列索引是根据需要为经常访问的索引页构建的。
+
+如果一个表几乎完全可以放在主内存中，那么哈希索引可以通过直接查找任何元素，将索引值转换为一种指针，从而加快查询速度。InnoDB有一个监控索引搜索的机制。如果InnoDB注意到查询可以从构建哈希索引中获益，它会自动这么做。
+
+在一些工作负载中，哈希索引查找带来的加速远远超过监视索引查找和维护哈希索引结构的额外工作。在繁重的工作负载下，对自适应哈希索引的访问有时会导致竞争，比如多个并发连接。查询语句中使用 `like %`也不会收益。对于不能从自适应哈希索引特性获益的工作负载，关闭它可以减少不必要的性能开销。由于很难预先预测自适应哈希索引特性是否适合特定的系统和工作负载，因此请考虑启用和禁用它来运行基准测试。MySQL 5.6的架构变化使得禁用自适应哈希索引特性比以前的版本更合适。
+
+自适应哈希索引是分区的。每个索引都绑定到一个特定的分区，并且每个分区都由一个单独latch保护。分区由变量`innodb_adaptive_hash_index_parts`控制,变量`innodb_adaptive_hash_index_parts`的默认设置为8，最大为512。
+
+你可以监控自适应哈希的使用和竞争情况，执行[`SHOW ENGINE INNODB STATUS`](https://dev.mysql.com/doc/refman/8.0/en/show-engine.html) 在输出内容的`SEMAPHORE`标题下。如果有许多线程等待在`btr0sea`创建的`RW-latch`上，考虑增加自适应哈希索引分区的数量或禁用自适应哈希索引特性。
+
+有关哈希索引的性能特征的信息，请参见8.3.9节[b树和哈希索引的比较]()。
+
+### 15.5.4 Log Buffer
+
+日志缓存是一个内存区域，用于存储将要写入磁盘上日志文件的数据。日志缓冲区大小由变量`innodb_log_buffer_size`定义，默认大小是16MB。日志缓冲区的内容会定期刷新到磁盘。大型日志缓冲区允许运行大型事务，而无需在事务提交之前将redo log数据写入磁盘。因此，如果事务需要更新、插入或删除许多行，那么增加日志缓冲区的大小可以节省磁盘I/O。
+
+`innodb_flush_log_at_trx_commit`变量控制如何写入和刷新日志缓冲区的内容到磁盘。`innodb_flush_log_at_timeout`变量控制日志刷新频率。
+
+相关信息，请参见内存配置和8.5.4节“优化InnoDB redo log”。
+
+## 15.6 InnoDB磁盘结构
+
+[15.6.1 Tables](https://dev.mysql.com/doc/refman/8.0/en/innodb-tables.html)
+
+[15.6.2 Indexes](https://dev.mysql.com/doc/refman/8.0/en/innodb-indexes.html)
+
+[15.6.3 Tablespaces](https://dev.mysql.com/doc/refman/8.0/en/innodb-tablespace.html)
+
+[15.6.4 Doublewrite Buffer](https://dev.mysql.com/doc/refman/8.0/en/innodb-doublewrite-buffer.html)
+
+[15.6.5 Redo Log](https://dev.mysql.com/doc/refman/8.0/en/innodb-redo-log.html)
+
+[15.6.6 Undo Logs](https://dev.mysql.com/doc/refman/8.0/en/innodb-undo-logs.html)
+
+本节描述InnoDB的磁盘结构和相关主题
+
+#### 15.6.1 表
+
+[15.6.1.1 Creating InnoDB Tables](https://dev.mysql.com/doc/refman/8.0/en/using-innodb-tables.html)
+
+[15.6.1.2 Creating Tables Externally](https://dev.mysql.com/doc/refman/8.0/en/innodb-create-table-external.html)
+
+[15.6.1.3 Importing InnoDB Tables](https://dev.mysql.com/doc/refman/8.0/en/innodb-table-import.html)
+
+[15.6.1.4 Moving or Copying InnoDB Tables](https://dev.mysql.com/doc/refman/8.0/en/innodb-migration.html)
+
+[15.6.1.5 Converting Tables from MyISAM to InnoDB](https://dev.mysql.com/doc/refman/8.0/en/converting-tables-to-innodb.html)
+
+[15.6.1.6 AUTO_INCREMENT Handling in InnoDB](https://dev.mysql.com/doc/refman/8.0/en/innodb-auto-increment-handling.html)
+
+本节涵盖了与InnoDB表相关的主题。
+
+##### 15.6.1.1 创建InnoDB表
+
+要创建一个InnoDB表，使用`create table`语句。
+
+```mysql
+CREATE TABLE t1 (a INT, b CHAR (20), PRIMARY KEY (a)) ENGINE=InnoDB;
+```
+
+如果InnoDB被定义为默认存储引擎，你不需要指定`ENGINE=InnoDB`子句，因为它是默认的。要检查默认存储引擎，执行以下语句:
+
+```mysql
+mysql> SELECT @@default_storage_engine;
++--------------------------+
+| @@default_storage_engine |
++--------------------------+
+| InnoDB                   |
++--------------------------+
+```
+
+如果您计划使用`mysqldump`或`replication`在默认存储引擎不是InnoDB的服务器上重新执行`CREATE TABLE`语句，您可能仍然需要使用`ENGINE=InnoDB`子句。
+
+InnoDB表及其索引可以在[system tablespace](https://dev.mysql.com/doc/refman/8.0/en/glossary.html#glos_system_tablespace)(系统表空间)中创建，也可以在[file-per-table](https://dev.mysql.com/doc/refman/8.0/en/glossary.html#glos_file_per_table)中创建，也可以在[general tablespace](https://dev.mysql.com/doc/refman/8.0/en/glossary.html#glos_general_tablespace)（普通表空间）中创建。当`innodb_file_per_table`被启用时(这是默认的)，一个InnoDB表将隐式地创建在file-per-table表空间中。相反，当`innodb_file_per_table`被禁用时，InnoDB表会隐式地在InnoDB系统表空间中创建。要在普通表空间中创建表，请使用[`CREATE TABLE ... TABLESPACE`](https://dev.mysql.com/doc/refman/8.0/en/create-table.html)的语法。更多信息，请参见15.6.3.3节“普通表空间”。
+
+当你在`file-per-table`表空间中创建表时，MySQL在MySQL数据文件夹下的数据库文件夹中创建`.ibd`表空间文件。在InnoDB系统表空间中创建的表是在现有的`ibdata`文件中创建的，该文件位于MySQL数据文件夹中。在常规表空间中创建的表是在现有的常规表空间.ibd文件中创建的。一般的表空间文件可以在MySQL数据目录内部或外部创建。更多信息，请参见15.6.3.3节“一般表空间”。
+
+InnoDB在内部为每个表添加一个条目到数据字典中。条目包括数据库名称。例如，如果表t1是在测test数据库中创建的，那么数据库名称的数据字典条目是`test/t1`。这意味着您可以在不同的数据库中创建同名表(t1)，并且在InnoDB中表名不会发生冲突。
+
+**InnoDB表和行格式**
+
+InnoDB表的默认行格式是由`innodb_default_row_format`配置选项定义的，它的默认值是`DYNAMIC`。[Dynamic](https://dev.mysql.com/doc/refman/8.0/en/glossary.html#glos_dynamic_row_format)和`Compressed`行格式允许您利用InnoDB的特性的优点，比如表压缩和大字段值的高效离线存储。要使用这些行格式，必须启用`innodb_file_per_table`(默认)。
+
+```mysql
+SET GLOBAL innodb_file_per_table=1;
+CREATE TABLE t3 (a INT, b CHAR (20), PRIMARY KEY (a)) ROW_FORMAT=DYNAMIC;
+CREATE TABLE t4 (a INT, b CHAR (20), PRIMARY KEY (a)) ROW_FORMAT=COMPRESSED;
+```
+
+或者，您可以使用 [`CREATE TABLE ... TABLESPACE`](https://dev.mysql.com/doc/refman/8.0/en/create-table.html) 语法创建一个InnoDB表在一般表空间。一般的表空间支持所有的行格式。更多信息，请参见15.6.3.3节“一般表空间”。
+
+```mysql
+CREATE TABLE t1 (c1 INT PRIMARY KEY) TABLESPACE ts1 ROW_FORMAT=DYNAMIC;
+```
+
+[`CREATE TABLE ... TABLESPACE`](https://dev.mysql.com/doc/refman/8.0/en/create-table.html) 语法还可以用于在系统表空间中创建具有动态行格式的InnoDB表，以及具有紧凑或冗余行格式的表。
+
+```mysql
+CREATE TABLE t1 (c1 INT PRIMARY KEY) TABLESPACE = innodb_system ROW_FORMAT=DYNAMIC;
+```
+
+更多关于InnoDB行格式的信息，参见15.10节“InnoDB行格式”。关于如何确定一个InnoDB表的行格式和InnoDB行格式的物理特性，参见15.10节“InnoDB行格式”。
+
+**InnoDB表和主键**
+
+总是为InnoDB表定义一个主键，指定一个或多个列:
+
+* 被最重要的查询引用。
+* 永远不会为空
+* 永远不要有重复的值
+* 插入后很少改变值。
+
+例如，在包含有关人员信息的表中，您将不会在(firstname, lastname)上创建主键，因为不止一个人可以拥有相同的名字，有些人的姓氏是空的，有时人们会更改他们的名字。由于存在如此多的约束，通常没有一组明显的列可以用作主键，因此您需要创建一个具有数字ID的新列作为主键的全部或部分。您可以声明一个自动递增的列，以便在插入行时自动填充升序值:
+
+```mysql
+# The value of ID can act like a pointer between related items in different tables.
+CREATE TABLE t5 (id INT AUTO_INCREMENT, b CHAR (20), PRIMARY KEY (id));
+
+# The primary key can consist of more than one column. Any autoinc column must come first.
+CREATE TABLE t6 (id INT AUTO_INCREMENT, a INT, b CHAR (20), PRIMARY KEY (id,a));
+```
+
+尽管表在不定义主键的情况下可以正常工作，但主键涉及性能的许多方面，并且对于任何大型或经常使用的表来说，它都是一个至关重要的设计方面。建议始终在CREATE TABLE语句中指定主键。如果创建表、加载数据，然后运行ALTER table以后添加主键，则该操作比创建表时定义主键要慢得多。
+
+**查看InnoDB表属性**
+
+查看innodb表的属性，执行[`SHOW TABLE STATUS`](https://dev.mysql.com/doc/refman/8.0/en/show-table-status.html)语句：
+
+```mysql
+mysql> SHOW TABLE STATUS FROM test LIKE 't%' \G;
+*************************** 1. row ***************************
+           Name: t1
+         Engine: InnoDB
+        Version: 10
+     Row_format: Compact
+           Rows: 0
+ Avg_row_length: 0
+    Data_length: 16384
+Max_data_length: 0
+   Index_length: 0
+      Data_free: 0
+ Auto_increment: NULL
+    Create_time: 2015-03-16 15:13:31
+    Update_time: NULL
+     Check_time: NULL
+      Collation: utf8mb4_0900_ai_ci
+       Checksum: NULL
+ Create_options:
+        Comment:
+```
+
+有关显示表状态输出的信息，请参见13.7.7.36节“显示表状态语句”。
+
+InnoDB表属性也可以用InnoDB Information Schema表查询:
+
+```mysql
+mysql> SELECT * FROM INFORMATION_SCHEMA.INNODB_TABLES WHERE NAME='test/t1' \G
+*************************** 1. row ***************************
+     TABLE_ID: 45
+         NAME: test/t1
+         FLAG: 1
+       N_COLS: 5
+        SPACE: 35
+   ROW_FORMAT: Compact
+ZIP_PAGE_SIZE: 0
+   SPACE_TYPE: Single
+```
+
+更多信息，参见15.15.3节“InnoDB INFORMATION_SCHEMA Schema对象表”。
+
+##### 15.6.1.2 创建外部表
+
+从外部创建InnoDB表有不同的原因;也就是说，在数据目录之外创建表。例如，这些原因可能包括空间管理、I/O优化或将表放置在具有特定性能或容量特征的存储设备上。
+
+InnoDB支持以下方法创建外部表:
+
+* 使用DATA DIRECTORY子句
+* 使用创建表…表空间的语法
+* 外部常规表空间中创建表
+
+**使用DATA DIRECTORY子句**
 
