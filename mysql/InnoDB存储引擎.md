@@ -664,9 +664,106 @@ ZIP_PAGE_SIZE: 0
 
 InnoDB支持以下方法创建外部表:
 
-* 使用DATA DIRECTORY子句
-* 使用创建表…表空间的语法
-* 外部常规表空间中创建表
+* 使用`DATA DIRECTORY`子句
+* 使用[CREATE TABLE ... TABLESPACE](https://dev.mysql.com/doc/refman/8.0/en/innodb-create-table-external.html#innodb-create-table-external-tablespace-syntax) 语法
+* 外部普通表空间中创建表
 
 **使用DATA DIRECTORY子句**
+
+通过在create table语句中指定DATA directory子句，可以在外部目录中创建InnoDB表
+
+```mysql
+CREATE TABLE t1 (c1 INT PRIMARY KEY) DATA DIRECTORY = '/external/directory';
+```
+
+`DATA DIRECTORY`子句支持在`file-per-table`表空间中创建的表。当`innodb_file_per_table`变量启用时(默认情况下是启用的)，表将隐式地在`file-per-table`表空间中创建。
+
+```mysql
+mysql> SELECT @@innodb_file_per_table;
++-------------------------+
+| @@innodb_file_per_table |
++-------------------------+
+|                       1 |
++-------------------------+
+```
+
+更多关于`file-per-table`表空间的信息，参见15.6.3.2节“`file-per-table`表空间”。
+
+当在CREATE TABLE语句中指定`DATA DIRECTORY`子句时，表的数据文件(table_name.ibd)将在指定目录下的schema文件夹下。
+
+在MySQL 8.0.21中，使用data directory子句在数据目录之外创建的表和表分区仅限于InnoDB已知的目录。这个要求允许数据库管理员控制表空间数据文件创建的位置，并确保在恢复期间可以找到数据文件(参见崩溃恢复期间的表空间发现)。已知的目录是由datadir、innodb_data_home_dir和innodb_directory变量定义的目录。您可以使用以下语句检查这些设置:
+
+```mysql
+mysql> SELECT @@datadir,@@innodb_data_home_dir,@@innodb_directories;
+```
+
+如果要使用的目录未知，在创建表之前将其添加到[`innodb_directories`](https://dev.mysql.com/doc/refman/8.0/en/innodb-parameters.html#sysvar_innodb_directories)设置中。[`innodb_directories`](https://dev.mysql.com/doc/refman/8.0/en/innodb-parameters.html#sysvar_innodb_directories)变量是只读的。配置它需要重新启动服务器。有关设置系统变量的一般信息，请参阅5.1.9节“使用系统变量”。
+
+下面的示例演示如何使用DATA directory子句在外部目录中创建表。假设`innodb_file_per_table`变量是启用的，并且InnoDB知道这个目录。
+
+```mysql
+mysql> USE test;
+Database changed
+
+mysql> CREATE TABLE t1 (c1 INT PRIMARY KEY) DATA DIRECTORY = '/external/directory';
+
+# MySQL creates the table's data file in a schema directory
+# under the external directory
+
+shell> cd /external/directory/test
+shell> ls
+t1.ibd
+```
+
+使用注意：
+
+* MySQL最初打开表空间数据文件，防止您卸载设备，但如果服务器繁忙，可能最终会关闭文件。小心不要在MySQL运行时意外地卸除外部设备，或在设备还没有挂载时启动MySQL。在关联数据文件丢失时试图访问表会导致严重错误，需要重新启动服务器。
+
+  如果在预期路径上没有找到数据文件，服务器重启可能会失败。在这种情况下，您可以从备份中恢复表空间数据文件，或者删除表从而使数据字典中删除有关它的信息。
+
+* 在将表放在NFS挂载的卷上之前，检查潜在的问题：[Using NFS with MySQL](https://dev.mysql.com/doc/refman/8.0/en/disk-issues.html#disk-issues-nfs).
+
+* 如果使用LVM快照、文件复制或其他基于文件的机制备份表的数据文件，请始终使用[`FLUSH TABLES ... FOR EXPORT`](https://dev.mysql.com/doc/refman/8.0/en/flush.html#flush-tables-for-export-with-list) 语句，以确保在发生备份之前，缓存在内存中的所有更改都被刷新到磁盘。
+
+* 使用DATA DIRECTORY子句在外部目录中创建表的另一个替代方案是使用[symbolic links](https://dev.mysql.com/doc/refman/8.0/en/symbolic-links.html)，符号链接是InnoDB不支持的。
+
+* 在源和副本位于同一台物理主机上的复制环境中，不支持DATA DIRECTORY子句。DATA DIRECTORY子句需要一个完整的目录路径。在本例中复制路径将导致源和副本在相同位置创建表。（主从在同一台物理机上）
+
+* 从MySQL 8.0.21开始，在`file-per-table`表空间中创建的表不能再在undo表空间目录(`innodb_undo_directory`)中创建，除非InnoDB直接知道这个。已知的目录是由datadir、innodb_data_home_dir和innodb_directory变量定义的目录。
+
+**使用CREATE TABLE ... TABLESPACE的语法**
+
+[`CREATE TABLE ... TABLESPACE`](https://dev.mysql.com/doc/refman/8.0/en/create-table.html)语法可以与DATA DIRECTORY子句结合使用，在外部目录中创建表。为此，需要指定`innodb_file_per_table`作为表空间名。
+
+```mysql
+mysql> CREATE TABLE t2 (c1 INT PRIMARY KEY) TABLESPACE = innodb_file_per_table
+       DATA DIRECTORY = '/external/directory';
+```
+
+这个方法只支持在`file-per-table`表空间中创建表，但是不需要启用`innodb_file_per_table`变量。在其他方面，这个方法等同于上面描述的`CREATE TABLE ... DATA DIRECTORY`。同样的功能不同的形式。
+
+**在外部常规表空间中创建表**
+
+可以在`general`表空间中创建位于外部目录中的表。
+
+* 有关在外部目录中创建`general`表空间的信息，请参见创建通用表空间。
+* 有关在`general`表空间中创建表的信息，请参见向一般表空间添加表。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
