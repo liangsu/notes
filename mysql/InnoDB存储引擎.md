@@ -749,6 +749,719 @@ mysql> CREATE TABLE t2 (c1 INT PRIMARY KEY) TABLESPACE = innodb_file_per_table
 * 有关在外部目录中创建`general`表空间的信息，请参见创建通用表空间。
 * 有关在`general`表空间中创建表的信息，请参见向一般表空间添加表。
 
+##### 15.6.1.3 导入innodb表
+
+本节描述如何使用*Transportable Tablespaces*的功能导入表，它允许导入表、分区表或在`file-per-table`表空间中的单个表分区。有很多原因，你可能想要导入表：
+
+* 在非生产MySQL服务器实例上运行报表，以避免对生产服务器增加额外负载
+* 将数据复制到新的replica服务器
+* 从备份（backed-up）表空间文件恢复表
+* 比导入dump文件更快的方式，导入dump文件需要重新插入数据和重新构建索引
+* 将你的数据迁移到一个更合适的存储设备。例如，您可以将访问频繁的表移动到SSD硬盘，或者将数据量大的表移动到高容量的HDD硬盘。
+
+***Transportable Tablespaces*特性将在本节的以下主题中进行描述**：
+
+* 准备知识
+* 导入表
+* 导入分区表
+* 导入表分区
+* 局限性
+* 使用笔记
+* 内部构件
+
+**准备知识：**
+
+* 必须启用innodb_file_per_table变量，这是默认情况
+* 表空间的页大小必须与目标MySQL服务器实例的页大小匹配。InnoDB页面大小是由`innodb_page_size`变量定义的，它是在初始化MySQL服务器实例时配置的。
+* 如果表处于外键关系中，则必须在执行丢弃表空间（`DISCARD TABLESPACE`）之前禁用[`foreign_key_checks`](https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_foreign_key_checks) 。另外，您应该在同一逻辑时间点导出所有与外键相关的表，如 [`ALTER TABLE ... IMPORT TABLESPACE`](https://dev.mysql.com/doc/refman/8.0/en/alter-table.html) 不会对导入的数据强制执行外键约束。为此，请停止更新相关表，提交所有事务，获取表上的共享锁，并执行导出操作。
+* 当从另一个MySQL服务器实例导入表时，两个MySQL服务器实例必须具有通用可用性(General Availability, GA)状态，并且必须是相同的版本。否则，该表必须在导入该表的同一MySQL服务器实例上创建。
+* 如果表是通过在CREATE table语句中指定DATA directory子句在外部目录中创建的，那么在目标实例上替换的表必须使用相同的DATA directory子句定义。如果子句不匹配，则报出schema不匹配错误。若要确定源表是否使用DATA DIRECTORY子句定义，请使用`SHOW CREATE table`查看表定义。有关使用DATA DIRECTORY子句的信息，请参见15.6.1.2节“创建表外部”。
+* 如果没有在表定义中显式定义`ROW_FORMAT`选项，或者使用了`ROW_FORMAT=DEFAULT`，则源实例和目标实例上的`innodb_default_row_format`设置必须相同。否则，在尝试导入操作时将报schema不匹配错误。使用`SHOW CREATE TABLE`检查表定义。使用[`SHOW VARIABLES`](https://dev.mysql.com/doc/refman/8.0/en/show-variables.html)检查`innodb_default_row_format`设置。有关相关信息，请参见定义表的行格式。
+
+**导入表**：
+
+这个示例演示了如何导入一个普通的非分区表，该表驻留在file-per-table表空间中
+
+1. 在目标实例上，创建与要导入的表定义相同的表。(您可以使用SHOW CREATE table语法获得表定义。)如果表定义不匹配，则在尝试导入操作时将报schema不匹配错误
+
+   ```mysql
+   mysql> USE test;
+   mysql> CREATE TABLE t1 (c1 INT) ENGINE=INNODB;
+   ```
+
+2. 在目标实例上，丢弃刚刚创建的表的表空间。(在导入之前，您必须丢弃接收表的表空间。)
+
+   ```mysql
+   mysql> ALTER TABLE t1 DISCARD TABLESPACE;
+   ```
+
+3. 在源实例上，运行 [`FLUSH TABLES ... FOR EXPORT`](https://dev.mysql.com/doc/refman/8.0/en/flush.html#flush-tables-for-export-with-list) 静默要导入的表。当一个表被静默时（quiesced），只允许该表上的只读事务。
+
+   ```mysql
+   mysql> USE test;
+   mysql> FLUSH TABLES t1 FOR EXPORT;
+   ```
+
+   [`FLUSH TABLES ... FOR EXPORT`](https://dev.mysql.com/doc/refman/8.0/en/flush.html#flush-tables-for-export-with-list)确保已将对指定表的更改刷新到磁盘，以便在服务器运行时可以进行二进制表复制。 当运行[`FLUSH TABLES ... FOR EXPORT`](https://dev.mysql.com/doc/refman/8.0/en/flush.html#flush-tables-for-export-with-list)时，InnoDB在表的schema目录下生成一个.cfg元数据文件，cfg文件包含用于导入操作期间的模式验证的元数据。
+
+4. 将.ibd文件和.cfg元数据文件从源实例复制到目标实例。例如:
+
+   ```shell
+   shell> scp /path/to/datadir/test/t1.{ibd,cfg} destination-server:/path/to/datadir/test
+   ```
+
+   .ibd文件和.cfg文件必须在释放共享锁之前复制，如下一步所述
+
+   > 注意
+   >
+   > 如果从加密的表空间导入表，InnoDB会生成一个.cfp文件和一个.cfg元数据文件。必须将.cfp文件与.cfg文件一起复制到目标实例。cfp文件包含一个传输密钥和一个加密的表空间密钥。在导入时，InnoDB使用传输密钥来解密表空间密钥。有关信息，请参见15.13节“InnoDB静态数据加密”。
+
+5. 在源实例上，使用 [`UNLOCK TABLES`](https://dev.mysql.com/doc/refman/8.0/en/lock-tables.html)来释放 [`FLUSH TABLES ... FOR EXPORT`](https://dev.mysql.com/doc/refman/8.0/en/flush.html#flush-tables-for-export-with-list)获取的锁。
+
+   ```mysql
+   mysql> USE test;
+   mysql> UNLOCK TABLES;
+   ```
+
+6. 在目标实例中，导入表空间:
+
+   ```mysql
+   mysql> USE test;
+   mysql> ALTER TABLE t1 IMPORT TABLESPACE;
+   ```
+
+**导入分区表**
+
+This example demonstrates how to import a partitioned table, where each table partition resides in a file-per-table tablespace.
+
+1. On the destination instance, create a partitioned table with the same definition as the partitioned table that you want to import. (You can obtain the table definition using [`SHOW CREATE TABLE`](https://dev.mysql.com/doc/refman/8.0/en/show-create-table.html) syntax.) If the table definition does not match, a schema mismatch error will be reported when you attempt the import operation.
+
+   ```sql
+   mysql> USE test;
+   mysql> CREATE TABLE t1 (i int) ENGINE = InnoDB PARTITION BY KEY (i) PARTITIONS 3;
+   ```
+
+   In the `/*`datadir`*/test` directory, there is a tablespace `.ibd` file for each of the three partitions.
+
+   ```terminal
+   mysql> \! ls /path/to/datadir/test/
+   db.opt  t1.frm  t1#p#p0.ibd  t1#p#p1.ibd  t1#p#p2.ibd
+   ```
+
+2. On the destination instance, discard the tablespace for the partitioned table. (Before the import operation, you must discard the tablespace of the receiving table.)
+
+   ```sql
+   mysql> ALTER TABLE t1 DISCARD TABLESPACE;
+   ```
+
+   The three tablespace `.ibd` files of the partitioned table are discarded from the `/*`datadir`*/test` directory, leaving the following files:
+
+   ```terminal
+   mysql> \! ls /path/to/datadir/test/
+   db.opt  t1.frm
+   ```
+
+3. On the source instance, run [`FLUSH TABLES ... FOR EXPORT`](https://dev.mysql.com/doc/refman/8.0/en/flush.html#flush-tables-for-export-with-list) to quiesce the partitioned table that you intend to import. When a table is quiesced, only read-only transactions are permitted on the table.
+
+   ```sql
+   mysql> USE test;
+   mysql> FLUSH TABLES t1 FOR EXPORT;
+   ```
+
+   [`FLUSH TABLES ... FOR EXPORT`](https://dev.mysql.com/doc/refman/8.0/en/flush.html#flush-tables-for-export-with-list) ensures that changes to the named table are flushed to disk so that binary table copy can be made while the server is running. When [`FLUSH TABLES ... FOR EXPORT`](https://dev.mysql.com/doc/refman/8.0/en/flush.html#flush-tables-for-export-with-list) is run, `InnoDB` generates `.cfg` metadata files in the schema directory of the table for each of the table's tablespace files.
+
+   ```terminal
+   mysql> \! ls /path/to/datadir/test/
+   db.opt t1#p#p0.ibd  t1#p#p1.ibd  t1#p#p2.ibd
+   t1.frm  t1#p#p0.cfg  t1#p#p1.cfg  t1#p#p2.cfg
+   ```
+
+   The `.cfg` files contain metadata that is used for schema verification when importing the tablespace. [`FLUSH TABLES ... FOR EXPORT`](https://dev.mysql.com/doc/refman/8.0/en/flush.html#flush-tables-for-export-with-list) can only be run on the table, not on individual table partitions.
+
+4. Copy the `.ibd` and `.cfg` files from the source instance schema directory to the destination instance schema directory. For example:
+
+   ```terminal
+   shell>scp /path/to/datadir/test/t1*.{ibd,cfg} destination-server:/path/to/datadir/test
+   ```
+
+   The `.ibd` and `.cfg` files must be copied before releasing the shared locks, as described in the next step.
+
+   Note
+
+   If you are importing a table from an encrypted tablespace, `InnoDB` generates a `.cfp` files in addition to a `.cfg` metadata files. The `.cfp` files must be copied to the destination instance together with the `.cfg` files. The `.cfp` files contain a transfer key and an encrypted tablespace key. On import, `InnoDB` uses the transfer key to decrypt the tablespace key. For related information, see [Section 15.13, “InnoDB Data-at-Rest Encryption”](https://dev.mysql.com/doc/refman/8.0/en/innodb-data-encryption.html).
+
+5. On the source instance, use [`UNLOCK TABLES`](https://dev.mysql.com/doc/refman/8.0/en/lock-tables.html) to release the locks acquired by [`FLUSH TABLES ... FOR EXPORT`](https://dev.mysql.com/doc/refman/8.0/en/flush.html#flush-tables-for-export-with-list):
+
+   ```sql
+   mysql> USE test;
+   mysql> UNLOCK TABLES;
+   ```
+
+6. On the destination instance, import the tablespace of the partitioned table:
+
+   ```sql
+   mysql> USE test;
+   mysql> ALTER TABLE t1 IMPORT TABLESPACE;
+   ```
+
+**Importing Table Partitions**
+
+This example demonstrates how to import individual table partitions, where each partition resides in a file-per-table tablespace file.
+
+In the following example, two partitions (`p2` and `p3`) of a four-partition table are imported.
+
+1. On the destination instance, create a partitioned table with the same definition as the partitioned table that you want to import partitions from. (You can obtain the table definition using [`SHOW CREATE TABLE`](https://dev.mysql.com/doc/refman/8.0/en/show-create-table.html) syntax.) If the table definition does not match, a schema mismatch error will be reported when you attempt the import operation.
+
+   ```sql
+   mysql> USE test;
+   mysql> CREATE TABLE t1 (i int) ENGINE = InnoDB PARTITION BY KEY (i) PARTITIONS 4;
+   ```
+
+   In the `/*`datadir`*/test` directory, there is a tablespace `.ibd` file for each of the four partitions.
+
+   ```terminal
+   mysql> \! ls /path/to/datadir/test/
+   db.opt  t1.frm  t1#p#p0.ibd  t1#p#p1.ibd  t1#p#p2.ibd t1#p#p3.ibd
+   ```
+
+2. On the destination instance, discard the partitions that you intend to import from the source instance. (Before importing partitions, you must discard the corresponding partitions from the receiving partitioned table.)
+
+   ```sql
+   mysql> ALTER TABLE t1 DISCARD PARTITION p2, p3 TABLESPACE;
+   ```
+
+   The tablespace `.ibd` files for the two discarded partitions are removed from the `/*`datadir`*/test` directory on the destination instance, leaving the following files:
+
+   ```terminal
+   mysql> \! ls /path/to/datadir/test/
+   db.opt  t1.frm  t1#p#p0.ibd  t1#p#p1.ibd
+   ```
+
+   Note
+
+   When [`ALTER TABLE ... DISCARD PARTITION ... TABLESPACE`](https://dev.mysql.com/doc/refman/8.0/en/alter-table.html) is run on subpartitioned tables, both partition and subpartition table names are permitted. When a partition name is specified, subpartitions of that partition are included in the operation.
+
+3. On the source instance, run [`FLUSH TABLES ... FOR EXPORT`](https://dev.mysql.com/doc/refman/8.0/en/flush.html#flush-tables-for-export-with-list) to quiesce the partitioned table. When a table is quiesced, only read-only transactions are permitted on the table.
+
+   ```sql
+   mysql> USE test;
+   mysql> FLUSH TABLES t1 FOR EXPORT;
+   ```
+
+   [`FLUSH TABLES ... FOR EXPORT`](https://dev.mysql.com/doc/refman/8.0/en/flush.html#flush-tables-for-export-with-list) ensures that changes to the named table are flushed to disk so that binary table copy can be made while the instance is running. When [`FLUSH TABLES ... FOR EXPORT`](https://dev.mysql.com/doc/refman/8.0/en/flush.html#flush-tables-for-export-with-list) is run, `InnoDB` generates a `.cfg` metadata file for each of the table's tablespace files in the schema directory of the table.
+
+   ```terminal
+   mysql> \! ls /path/to/datadir/test/
+   db.opt  t1#p#p0.ibd  t1#p#p1.ibd  t1#p#p2.ibd t1#p#p3.ibd
+   t1.frm  t1#p#p0.cfg  t1#p#p1.cfg  t1#p#p2.cfg t1#p#p3.cfg
+   ```
+
+   The `.cfg` files contain metadata that used for schema verification during the import operation. [`FLUSH TABLES ... FOR EXPORT`](https://dev.mysql.com/doc/refman/8.0/en/flush.html#flush-tables-for-export-with-list) can only be run on the table, not on individual table partitions.
+
+4. Copy the `.ibd` and `.cfg` files for partition `p2` and partition `p3` from the source instance schema directory to the destination instance schema directory.
+
+   ```terminal
+   shell> scp t1#p#p2.ibd t1#p#p2.cfg t1#p#p3.ibd t1#p#p3.cfg destination-server:/path/to/datadir/test
+   ```
+
+   The `.ibd` and `.cfg` files must be copied before releasing the shared locks, as described in the next step.
+
+   Note
+
+   If you are importing partitions from an encrypted tablespace, `InnoDB` generates a `.cfp` files in addition to a `.cfg` metadata files. The `.cfp` files must be copied to the destination instance together with the `.cfg` files. The `.cfp` files contain a transfer key and an encrypted tablespace key. On import, `InnoDB` uses the transfer key to decrypt the tablespace key. For related information, see [Section 15.13, “InnoDB Data-at-Rest Encryption”](https://dev.mysql.com/doc/refman/8.0/en/innodb-data-encryption.html).
+
+5. On the source instance, use [`UNLOCK TABLES`](https://dev.mysql.com/doc/refman/8.0/en/lock-tables.html) to release the locks acquired by [`FLUSH TABLES ... FOR EXPORT`](https://dev.mysql.com/doc/refman/8.0/en/flush.html#flush-tables-for-export-with-list):
+
+   ```sql
+   mysql> USE test;
+   mysql> UNLOCK TABLES;
+   ```
+
+6. On the destination instance, import table partitions `p2` and `p3`:
+
+   ```sql
+   mysql> USE test;
+   mysql> ALTER TABLE t1 IMPORT PARTITION p2, p3 TABLESPACE;
+   ```
+
+   Note
+
+   When [`ALTER TABLE ... IMPORT PARTITION ... TABLESPACE`](https://dev.mysql.com/doc/refman/8.0/en/alter-table.html) is run on subpartitioned tables, both partition and subpartition table names are permitted. When a partition name is specified, subpartitions of that partition are included in the operation.
+
+**局限性**
+
+* 可移植表空间特性只支持驻留在`file-per-table `表空间中的表。它不支持驻留在系统表空间或一般表空间中的表。共享表空间中的表不能静默（quiesced）。
+* [`FLUSH TABLES ... FOR EXPORT`](https://dev.mysql.com/doc/refman/8.0/en/flush.html#flush-tables-for-export-with-list) 在有全文索引的表上不支持，因为无法刷新全文搜索辅助表。在导入具有全文索引的表之后，运行[`OPTIMIZE TABLE`](https://dev.mysql.com/doc/refman/8.0/en/optimize-table.html) 来重新构建全文索引。或者，在导出操作之前删除全文索引，并在将表导入目标实例后重新创建索引。
+* 由于.cfg元数据文件限制，在导入分区表时，不会报告分区类型或分区定义差异导致的模式不匹配。列差异被报告。
+* 在MySQL 8.0.19之前，索引关键部分排序顺序信息不会存储到表空间导入操作期间使用的.cfg元数据文件中。因此，假定索引键部分的排序顺序为升序，这是默认的。因此，如果导入操作中涉及的一个表是用DESC索引键部分排序顺序定义的，而另一个表不是这样定义的，那么记录可能会以非预期的顺序排序。解决方法是删除并重新创建受影响的索引。有关索引关键部件排序顺序的信息，请参阅13.1.15节“创建索引语句”。
+
+在MySQL 8.0.19中更新了.cfg文件格式，以包含索引关键部分的排序顺序信息。上述问题不会影响MySQL 8.0.19或更高服务器实例之间的导入操作。
+
+**使用笔记**
+
+* [`ALTER TABLE ... IMPORT TABLESPACE`](https://dev.mysql.com/doc/refman/8.0/en/alter-table.html) 不需要.cfg元数据文件来导入表。但是，在导入没有.cfg文件时，不会执行元数据检查，并且会发出类似于以下的警告:
+
+  ```verilog
+  Message: InnoDB: IO Read error: (2, No such file or directory) Error opening '.\
+  test\t.cfg', will attempt to import without schema verification
+  1 row in set (0.00 sec)
+  ```
+
+  只有在没有schema不匹配的情况下，才应该考虑导入没有.cfg元数据文件的表。在元数据不可访问的崩溃恢复场景中，不使用.cfg文件进行导入的能力可能非常有用。
+
+* 在Windows上，InnoDB内部用小写字母存储数据库、表空间和表名。为了避免在Linux和Unix等区分大小写的操作系统上导入问题，可以使用小写名称创建所有数据库、表空间和表。确保用小写字母创建名称的方便方法是在初始化服务器之前将`lower_case_table_names`设置为1。(禁止使用与服务器初始化时使用的设置不同的`lower_case_table_names`来启动服务器。)
+
+  ```mysql
+  [mysqld]
+  lower_case_table_names=1
+  ```
+
+* 运行[`ALTER TABLE ... DISCARD PARTITION ... TABLESPACE`](https://dev.mysql.com/doc/refman/8.0/en/alter-table.html) 和 [`ALTER TABLE ... IMPORT PARTITION ... TABLESPACE`](https://dev.mysql.com/doc/refman/8.0/en/alter-table.html)在子分区表上，分区和子分区表名都是允许的。指定分区名称时，该分区的子分区将包括在操作中。
+
+**内部构件**
+
+下信息描述了在表导入过程中写入错误日志的内部内容和消息。
+
+当在目标实例上运行[`ALTER TABLE ... DISCARD TABLESPACE`](https://dev.mysql.com/doc/refman/8.0/en/alter-table.html)时：
+
+	* 表在X模式下被锁定
+	* 表空间与表分离
+
+当 [`FLUSH TABLES ... FOR EXPORT`](https://dev.mysql.com/doc/refman/8.0/en/flush.html#flush-tables-for-export-with-list)在源实例上运行:
+
+* 为导出而刷新的表在shared模式下被锁定
+* 清除协调器线程（purge coordinator thread）停止
+* 脏页被同步到磁盘。
+* 表元数据被写入二进制.cfg文件。
+
+此操作的预期错误日志消息：
+
+```
+[Note] InnoDB: Sync to disk of '"test"."t1"' started.
+[Note] InnoDB: Stopping purge
+[Note] InnoDB: Writing table metadata to './test/t1.cfg'
+[Note] InnoDB: Table '"test"."t1"' flushed to disk
+```
+
+当 [`UNLOCK TABLES`](https://dev.mysql.com/doc/refman/8.0/en/lock-tables.html) 运行在源实例:
+
+* 二进制.cfg文件被删除
+* 释放正在导入的一个或多个表上的shared锁，并重新启动purge协调器线程。
+
+此操作的预期错误日志消息:
+
+```
+[Note] InnoDB: Deleting the meta-data file './test/t1.cfg'
+[Note] InnoDB: Resuming purge
+```
+
+当[`ALTER TABLE ... IMPORT TABLESPACE`](https://dev.mysql.com/doc/refman/8.0/en/alter-table.html)在目标实例上运行，导入算法对每个导入的表空间执行以下操作:
+
+* 检查每个表空间页是否损坏
+* 更新每个页面上的空间ID和日志序列号(LSNs)。
+* 验证头页的标志并更新LSN。
+* Btree页面被更新。
+* 将页状态设置为dirty以便将其写入磁盘。
+
+此操作的预期错误日志消息:
+
+```
+[Note] InnoDB: Importing tablespace for table 'test/t1' that was exported
+from host 'host_name'
+[Note] InnoDB: Phase I - Update all pages
+[Note] InnoDB: Sync to disk
+[Note] InnoDB: Sync to disk - done!
+[Note] InnoDB: Phase III - Flush changes to disk
+[Note] InnoDB: Phase IV - Flush complete
+```
+
+> 注意：
+>
+> 您可能还会收到一个表空间被丢弃的警告(如果您丢弃了目标表的表空间)和一条消息，声明由于缺少.ibd文件，无法计算统计数据:
+>
+> ```
+> [Warning] InnoDB: Table "test"."t1" tablespace is set as discarded.
+> 7f34d9a37700 InnoDB: cannot calculate statistics for table
+> "test"."t1" because the .ibd file is missing. For help, please refer to
+> http://dev.mysql.com/doc/refman/8.0/en/innodb-troubleshooting.html
+> ```
+
+##### 15.6.1.4 移动或复制InnoDB表
+
+本节描述移动或复制部分或全部InnoDB表到不同服务器或实例的技术。例如，您可以将整个MySQL实例移动到更大、更快的服务器上;您可能会将整个MySQL实例克隆到一个新的复制服务器;您可以将单个表复制到另一个实例以开发和测试应用程序，或者复制到数据仓库服务器以生成报表。
+
+在Windows上，InnoDB总是用小写字母在内部存储数据库和表名。要以二进制格式将数据库从Unix移动到Windows或从Windows移动到Unix，请使用小写名称创建所有数据库和表。一个方便的方法是在创建数据库或表之前，在my.cnf或my.ini文件的[mysqld]部分添加以下代码:
+
+```mysql
+[mysqld]
+lower_case_table_names=1
+```
+
+> 注意：
+>
+> 禁止使用与服务器初始化时使用的设置不同的`lower_case_table_names`来启动服务器
+
+移动或复制InnoDB表的技术包括：
+
+* [Importing Tables](https://dev.mysql.com/doc/refman/8.0/en/innodb-migration.html#copy-tables-import)
+* [MySQL Enterprise Backup](https://dev.mysql.com/doc/refman/8.0/en/innodb-migration.html#copy-tables-meb)
+* 复制数据文件（冷备份方式）
+* 从逻辑备份中恢复
+
+**Importing Tables**
+
+可以使用`Transportable Tablespace`的功能从另一个MySQL服务器实例或从备份中导入位于`file-per-table`表空间中的表。参见15.6.1.3节“导入InnoDB表”。
+
+**MySQL Enterprise Backup**
+
+MySQL Enterprise Backup产品允许您备份正在运行的MySQL数据库，它对数据库操作的干扰最小，同时生成数据库的一致快照。当MySQL企业备份正在复制表时，读写可以继续进行。此外，MySQL企业备份可以创建压缩备份文件，并备份表的子集。结合使用MySQL二进制日志，可以执行时间点恢复。MySQL企业备份是MySQL企业订阅的一部分。
+
+更多关于MySQL企业备份的细节，请参见30.2节“MySQL企业备份概述”。
+
+**复制数据文件（冷备份方式）**
+
+你可以通过简单的复制相关的文件来移动一个InnoDB数据库，第15.18.1节，“InnoDB备份”中“冷备份”章节下。
+
+InnoDB数据和日志文件在所有平台上都是二进制兼容的，具有相同的浮点数格式。如果浮点格式不同，但是没有在表中使用FLOAT或DOUBLE数据类型，那么可以使用相同的步骤：简单地复制相关文件。
+
+当您移动或复制`file-per-table`的.ibd文件时，源系统和目标系统上的数据库目录名称必须相同。存储在InnoDB共享表空间中的表定义包括数据库名。存储在表空间文件中的事务id和日志序列号在数据库之间也有所不同。
+
+要将.ibd文件和关联的表从一个数据库移动到另一个数据库，可以使用RENAME table语句:
+
+```shell
+RENAME TABLE db1.tbl_name TO db2.tbl_name;
+```
+
+如果你有一个“干净（clean）”的`.ibd`文件备份，你可以将它还原到原来的MySQL安装，如下所示:
+
+1. 在复制`.ibd`文件之后，没有删除或截断过表，因为这样做会更改表空间中存储的表ID。
+
+2. 执行[`ALTER TABLE`](https://dev.mysql.com/doc/refman/8.0/en/alter-table.html) 语句来删除当前的.ibd文件:
+
+   ```mysql
+   ALTER TABLE tbl_name DISCARD TABLESPACE;
+   ```
+
+3. 将备份的.ibd文件复制到适当的数据库目录。
+
+4. 执行`ALTER TABLE`语句，告诉InnoDB使用新的.ibd文件对表进行处理:
+
+   ```mysql
+   ALTER TABLE tbl_name IMPORT TABLESPACE;
+   ```
+
+   >注意：
+   >
+   >[`ALTER TABLE ... IMPORT TABLESPACE`](https://dev.mysql.com/doc/refman/8.0/en/alter-table.html) 不会对导入的数据强制执行外键约束。
+
+在这种情况下，“clean”的.ibd文件备份满足以下要求:
+
+* ibd文件中没有事务未提交的修改。
+* ibd文件中没有未合并的插入缓冲区条目
+* Purge操作已经从.ibd文件中删除了所有删除标记的索引记录。
+* mysqld已经将.ibd文件的所有修改页面从缓冲池中刷新到该文件中
+
+您可以使用以下方法制作一个clean的.ibd备份文件：
+
+* 停止mysqld服务器上的所有活动并提交所有事务。
+* 等待直到[`SHOW ENGINE INNODB STATUS`](https://dev.mysql.com/doc/refman/8.0/en/show-engine.html)显示没有活动事务，且INNODB的主线程状态是`Waiting for server activity`，然后你可以复制.ibd文件了。
+
+另一种复制.ibd文件的方法是使用MySQL企业备份产品:
+
+1. 使用“MySQL企业备份”备份InnoDB安装
+2. 启动第二个mysqld备份服务器，让它清理备份中的.ibd文件。
+
+**从逻辑备份中恢复**
+
+您可以使用[**mysqldump**](https://dev.mysql.com/doc/refman/8.0/en/mysqldump.html)之类的实用程序来执行逻辑备份，这将生成一系列的SQL语句，可以执行这些SQL语句来复制原始数据库对象定义和表数据，以便传输到另一个SQL服务器。使用此方法，格式是否不同或表是否包含浮点数据都无关紧要。
+
+要提高此方法的性能，请在导入数据时禁用`autocommit`。仅在导入整个表或表的某一段段后执行提交。
+
+> 个人总结：
+>
+> 备份的方式：
+>
+> 1. 使用*Transportable Tablespaces*，依靠复制idb文件进行复制
+> 2. 使用mysql企业级备份工具，支持热备
+> 3. 直接移动idb文件（和第一点类似）
+> 4. 使用mysqldump，备份数据为sql
+
+##### 15.6.1.5 转换表从MyISAM到InnoDB
+
+如果你想将MyISAM表转换为InnoDB以获得更好的可靠性和可伸缩性，那么在转换之前请查看下面的指导原则和提示。
+
+> 注意：
+>
+> 在MySQL以前的版本中创建的分区MyISAM表与MySQL 8.0不兼容。这些表必须在升级之前准备好，要么删除分区，要么将它们转换为InnoDB。有关更多信息，请参见第23.6.2节“与存储引擎相关的分区限制”。
+
+**调整MyISAM和InnoDB的内存使用**
+
+其它先略
+
+
+
+##### 15.6.1.6 InnoDB中的自动递增处理
+
+InnoDB提供了一种可配置的锁定机制，可以显著提高插入有AUTO_INCREMENT列的行的SQL语句的可伸缩性和性能。要在InnoDB表中使用AUTO_INCREMENT机制，必须将AUTO_INCREMENT列定义为索引的一部分，这样就可以在表中执行等价的索引SELECT MAX(ai_col)查找，以获得最大的列值。通常，这是通过将该列作为某些表索引的第一列来实现的。
+
+本节介绍AUTO_INCREMENT锁模式的行为，不同的AUTO_INCREMENT锁模式设置的使用含义，以及InnoDB如何初始化AUTO_INCREMENT计数器。
+
+* InnoDB自增锁模式
+* InnoDB AUTO_INCREMENT锁模式使用提示
+* 初始化InnoDB自增计数器
+* 说明
+
+**InnoDB自动递增锁模式**
+
+本节描述用于生成自增值的AUTO_INCREMENT锁模式的行为，以及每种锁模式如何影响复制。自动增量锁定模式是在启动时使用`innodb_autoinc_lock_mode`配置参数配置的。
+
+以下术语用于描述`innodb_autoinc_lock_mode`设置:
+
+* "[`INSERT`](https://dev.mysql.com/doc/refman/8.0/en/insert.html)-like"语句
+
+  所有在表中生成新行的语句，包括[`INSERT`](https://dev.mysql.com/doc/refman/8.0/en/insert.html), [`INSERT ... SELECT`](https://dev.mysql.com/doc/refman/8.0/en/insert-select.html), [`REPLACE`](https://dev.mysql.com/doc/refman/8.0/en/replace.html), [`REPLACE ... SELECT`](https://dev.mysql.com/doc/refman/8.0/en/replace.html)和[`LOAD DATA`](https://dev.mysql.com/doc/refman/8.0/en/load-data.html)。包括“简单插入（Simple inserts）”、“大容量插入（bulk-inserts）”和“混合模式”插入。
+
+* “Simple inserts”
+
+  可以预先确定要插入的行数的语句(在最初处理语句时)。这包括单行和多行INSERT和REPLACE语句，它们没有嵌套子查询，但没有[`INSERT ... ON DUPLICATE KEY UPDATE`](https://dev.mysql.com/doc/refman/8.0/en/insert-on-duplicate.html)。
+
+* “Bulk inserts” （批量插入）
+
+  不知道要插入的行数(即：需要自动递增多少)的语句。这包括 [`INSERT ... SELECT`](https://dev.mysql.com/doc/refman/8.0/en/insert-select.html), [`REPLACE ... SELECT`](https://dev.mysql.com/doc/refman/8.0/en/replace.html)和[`LOAD DATA`](https://dev.mysql.com/doc/refman/8.0/en/load-data.html) 语句，但不是纯插入。InnoDB在处理每一行时为AUTO_INCREMENT列分配一个新值。
+
+* "Mixed-mode inserts"（混合插入）
+
+  这些是“简单插入”语句，为一些(但不是所有)新行指定自增列的值。例如，c1是表t1的AUTO_INCREMENT列:
+
+  ```mysql
+  INSERT INTO t1 (c1,c2) VALUES (1,'a'), (NULL,'b'), (5,'c'), (NULL,'d');
+  ```
+
+  另一种“混合模式插入是”[`INSERT ... ON DUPLICATE KEY UPDATE`](https://dev.mysql.com/doc/refman/8.0/en/insert-on-duplicate.html)"，在最坏的情况下，插入之后是更新，其中AUTO_INCREMENT列的分配值可能在更新阶段使用，也可能不使用。
+
+`innodb_autoinc_lock_mode`配置参数有三种可能的设置，对于“traditional”（传统）、“consecutive”（连续）或“interleaved”（交错）锁模式，设置分别为0、1或2。在MySQL 8.0中，交错锁模式(`innodb_autoinc_lock_mode=2`)是默认设置。在MySQL 8.0之前，默认是连续锁定模式(`innodb_autoinc_lock_mode=1`)。
+
+MySQL 8.0中交错锁模式的默认设置，反映了默认复制类型从基于语句的复制到基于行的复制的变化。基于语句的复制需要连续的自动增量锁定模式，以确保对给定的SQL语句序列以可预测和可重复的顺序分配自动增量值，而基于行的复制对SQL语句的执行顺序不敏感。
+
+* `innodb_autoinc_lock_mode = 0` (“traditional” lock mode)
+
+  传统的锁模式提供了之前在MySQL 5.1中引入`innodb_autoinc_lock_mode`配置参数相同的行为。由于可能存在语义上的差异，传统的锁模式选项用于向后兼容性、性能测试和解决“混合模式插入”问题。
+
+  在这种锁定模式下，所有“INSERT-like”的语句都获得一个特殊的表级`AUTO-INC`锁，用于插入到具有AUTO_INCREMENT列的表中。这个锁通常持有到sql语句执行完成之后（而不是事务事务结束之后），以确保一系列的insert语句的auto-increment的值是可预测的、可重复的顺序，还确保给定语句的auto-increment的值是连贯的。
+
+  对于基于语句的复制，这意味着在复制服务器上复制SQL语句时，自动递增列使用与源服务器上相同的值。执行多个INSERT语句的结果是确定性的，副本将复制与源上相同的数据。如果多个INSERT语句生成的auto-increment值是交错的，那么两个并发INSERT语句的结果将是不确定的，并且不能使用基于语句的复制可靠地传播到复制服务器。
+
+  为了清楚地说明这一点，考虑一个使用这个表的例子:
+
+  ```mysql
+  CREATE TABLE t1 (
+    c1 INT(11) NOT NULL AUTO_INCREMENT,
+    c2 VARCHAR(10) DEFAULT NULL,
+    PRIMARY KEY (c1)
+  ) ENGINE=InnoDB;
+  ```
+
+  假设有两个正在运行的事务，每个事务都将行插入一个包含AUTO_INCREMENT列的表中。一个事务使用 [`INSERT ... SELECT`](https://dev.mysql.com/doc/refman/8.0/en/insert-select.html)语句插入1000行，另一个使用简单的INSERT语句插入一行:
+
+  ```mysql
+  Tx1: INSERT INTO t1 (c2) SELECT 1000 rows from another table ...
+  Tx2: INSERT INTO t1 (c2) VALUES ('xxx');
+  ```
+
+  InnoDB不能预先知道在Tx1的INSERT语句中从SELECT语句中检索了多少行，它会在语句进行的时候一次分配一个自增值。对于表级锁(持有到语句末尾)，一次只能执行一条引用表t1的INSERT语句，并且不同语句生成的自动递增的数字不会交织在一起。Tx1生成的自动递增值`insert…SELECT`语句是连续的，而Tx2中的INSERT语句使用的(单个)自动递增值比Tx1使用的所有值都要小或大，这取决于哪条语句先执行。
+
+  只要从二进制日志中重放SQL语句时(使用基于语句的复制或在恢复场景中)，与Tx1和Tx2首次在源数据库运行时的结果是一样的。因此，表级锁一直保持到语句结束，使得使用自动递增的INSERT语句在基于语句的复制中使用是安全的。但是，当多个事务同时执行insert语句时，这些表级锁会限制并发性和可伸缩性。
+
+  在前面的示例中，如果没有表级锁，则Tx2中用于插入的自动递增列的值完全取决于语句执行的时间。如果Tx2的插入是在Tx1的插入运行时执行的(而不是在Tx1开始之前或完成之后)，那么两个INSERT语句分配的自增值是不确定的，并且可能随着每次运行而变化。
+
+  在连续（[consecutive](https://dev.mysql.com/doc/refman/8.0/en/innodb-auto-increment-handling.html#innodb-auto-increment-lock-mode-consecutive)）锁模式下，对预先知道行数的“simple insert”语句，InnoDB可以避免使用使用表级别`AUTO-INC`锁，同时仍然保证执行的确定性和基于语句复制的安全性。
+
+  如果你不使用二进制日志重播SQL语句来恢复或复制，交叉锁（[interleaved](https://dev.mysql.com/doc/refman/8.0/en/innodb-auto-increment-handling.html#innodb-auto-increment-lock-mode-interleaved) ）模式可以用来取消使用表级别的锁`AUTO-INC`，从而获得更大的并发性和性能。前提是允许自增列在每次并发交错执行都可能产生不同的自增值。
+
+* `innodb_autoinc_lock_mode = 1` 连续锁模式
+
+  在这种模式下，“批量插入”使用特殊的AUTO-INC表级锁，并持有它直到语句结束，这适用于所有[`INSERT ... SELECT`](https://dev.mysql.com/doc/refman/8.0/en/insert-select.html), [`REPLACE ... SELECT`](https://dev.mysql.com/doc/refman/8.0/en/replace.html),和[`LOAD DATA`](https://dev.mysql.com/doc/refman/8.0/en/load-data.html) 语句。在同一时间只有一条语句能持有`AUTO-INC`锁。如果批量插入操作的原表与目标表不同，那么目标表的`AUTO-INC`锁的获取在源表中获取共享锁（第一行数据被查出时获取共享锁）之后。如果原表与目标表相同，那么获取`AUTO-INC`锁将共享锁（在select出所有行之后获取共享锁）之后。
+
+  “简单的插入”(提前已经知道要插入的行数)可以避免表级锁`AUTO-INC`，在执行期间获取一把互斥锁（重量级锁）然后生成需要自增多少，就不用持有`AUTO-INC`锁到语句执行完成。表级别的锁AUTO-INC不会被使用除非有另一个事务获得了`AUTO-INC`锁，如果另一个事务获得了`AUTO-INC`锁，那么“简单插入”会等待`AUTO-INC`锁，就像它是“批量插入”一样。
+
+  这个锁定模式能够确保，在INSERT的行数提前是不知道的(随着语句的进行，分配自动递增的数字),对于“insert-like”语句所有的自增值是连续的，并在基于语句的复制数据是安全的。
+
+  简单地说，这种锁模式显著提高了可伸缩性，同时对基于语句的复制使用是安全的。而且，与“传统”锁模式一样，任何给定语句分配的自动递增的数字都是连续的。与使用自动递增的“传统”模式相比，使用自动递增的语句在语义上没有任何变化，但有一个重要的例外。
+
+  例外情况是“混合模式插入”，在这种情况下，用户为多行“简单插入”中的一些(而不是全部)行提供AUTO_INCREMENT列的显式值。对于这样的插入，InnoDB分配的自动递增值比要插入的行数还要多。但是，自动分配的所有值都是连续生成的(因此大于)最近执行的前面语句生成的自动递增值。“多余的”数字丢失了。
+
+* `innodb_autoinc_lock_mode = 2` (交错`interleaved`锁模式)
+
+  在这种锁定模式下，“[`INSERT`](https://dev.mysql.com/doc/refman/8.0/en/insert.html)-like”语句不会使用表级自动inc锁定，多条语句可以同时执行。这是最快、最可伸缩的锁模式，但是当使用基于语句的复制或恢复场景(从二进制日志中重放SQL语句)时，它不安全。
+
+  在这种锁定模式下，自动递增的值保证是惟一的，并且在所有并发执行的“insert-like”语句中单调递增。但是，由于多个语句可以同时生成数字(即，数字的分配在语句之间交错)，因此由任何给定语句插入的行生成的值可能不是连续的。
+
+  如果执行的语句都是“simple inserts”，其中要插入的行数是预先知道的，那么除了“混合模式插入”之外，为单个语句生成的数字不会有缺口。但是，在执行“批量插入”时，任何给定语句的自增值都可能不连续。
+
+  
+
+**InnoDB AUTO_INCREMENT锁模式使用提示**
+
+* 在复制场景中使用auto-increment
+
+  如果使用基于语句的复制，请将`innodb_autoinc_lock_mode`设置为0或1，并在源及其副本上使用相同的值。如果使用`innodb_autoinc_lock_mode = 2`(“交错”)或在源和副本不使用相同锁模式的配置中，不能确保副本上的自动增量值与源上的相同。
+
+  如果使用基于行或混合格式的复制，那么所有的auto-increment模式都是安全的，因为基于行的复制对SQL语句的执行顺序不敏感（混合格式会对不安全的语句使用基于行的复制）。
+
+* “丢失”auto-increment的值并产生序列间隙
+
+  在所有锁模式(0,1,2)中，如果生成自动递增值的事务回滚，这些自动递增的值将“丢失”。一旦为自动增量列生成了值，就不能回滚该值，无论“insert-like”语句是否完成，也无论包含的事务是否回滚。这些丢失的值不会被重用。因此，在表的AUTO_INCREMENT列中存储的值可能存在不连续。
+
+* 为AUTO_INCREMENT列指定NULL或0
+
+  在所有的锁模式(0,1，和2)中，如果用户在插入时为AUTO_INCREMENT列指定了NULL或0,InnoDB就会像未指定值一样处理该行，并为其生成一个新值。
+
+* 如果AUTO_INCREMENT值大于指定整数类型的最大整数
+
+  在所有锁模式(0、1和2)中，如果值大于指定整数类型中可以存储的最大整数，则不要定义自动增量机制的行为。
+
+* “批量插入”的自动递增值中的间隙
+
+  `innodb_autoinc_lock_mode`设置为0(“传统”)或1(“连续”),任何给定的语句生成的自动递增值是连续的，没有间隙，因为表级锁AUTO-INC持有到语句执行的最后，且同一时间只有一条插入的语句可以执行。
+
+  innodb_autoinc_lock_mode设置为2(“interleaved”)时，“批量插入”生成的自动递增值可能会有间隙，但只有在并发执行“inert-like”语句时才会这样。
+
+  对于锁模式1或2，连续语句之间可能会出现差距，因为对于批量插入，可能不知道每个语句所需的自动递增值的确切数量，可能会高估“simple-like”的值。
+
+* 在“混合模式插入”分配的自动递增值
+
+  考虑一个“混合模式插入”，其中“简单插入”指定一些(但不是全部)结果行的自动递增值。这样的语句在锁定模式0、1和2中表现不同。例如，假设c1是表t1的一个AUTO_INCREMENT列，并且最近自动生成的序列号是100。
+
+  ```mysql
+  mysql> CREATE TABLE t1 (
+      -> c1 INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, 
+      -> c2 CHAR(1)
+      -> ) ENGINE = INNODB;
+  ```
+
+  现在，考虑下面的“混合模式插入”语句：
+
+  ```mysql
+  mysql> INSERT INTO t1 (c1,c2) VALUES (1,'a'), (NULL,'b'), (5,'c'), (NULL,'d');
+  ```
+
+  `innodb_autoinc_lock_mode`设置为0(“传统”)，这4个新行是：
+
+  ```sql
+  mysql> SELECT c1, c2 FROM t1 ORDER BY c2;
+  +-----+------+
+  | c1  | c2   |
+  +-----+------+
+  |   1 | a    |
+  | 101 | b    |
+  |   5 | c    |
+  | 102 | d    |
+  +-----+------+
+  ```
+
+  下一个可用的自动递增值是103，因为自动递增值是一次分配一个，而不是在语句开始执行时一次性分配所有的值。无论是否有并发执行的“insert-like”语句(任何类型)，此结果都为真。
+
+  `innodb_autoinc_lock_mode`设置为1(“连续”)，这4个新行也是:
+
+  ```mysql
+  mysql> SELECT c1, c2 FROM t1 ORDER BY c2;
+  +-----+------+
+  | c1  | c2   |
+  +-----+------+
+  |   1 | a    |
+  | 101 | b    |
+  |   5 | c    |
+  | 102 | d    |
+  +-----+------+
+  ```
+
+  但是，在本例中，下一个可用的自动递增值是105，而不是103，因为在处理语句时分配了四个自动递增值，但只使用了两个。无论是否有并发执行的“类插入”语句(任何类型)，此结果都为真。
+
+  innodb_autoinc_lock_mode设置为模式2 (" interleaved ")，这4个新行是:
+
+  ```mysql
+  mysql> SELECT c1, c2 FROM t1 ORDER BY c2;
+  +-----+------+
+  | c1  | c2   |
+  +-----+------+
+  |   1 | a    |
+  |   x | b    |
+  |   5 | c    |
+  |   y | d    |
+  +-----+------+
+  ```
+
+  x和y的值是惟一的，并且比以前生成的任何行都大。但是，x和y的特定值取决于并发执行语句自增了多少。
+
+  最后，考虑以下语句，当最近生成的序列号为100时执行:
+
+  ```mysql
+  mysql> INSERT INTO t1 (c1,c2) VALUES (1,'a'), (NULL,'b'), (101,'c'), (NULL,'d');
+  ```
+
+  使用任何`innodb_autoinc_lock_mode`设置，该语句会生成重复值，并报出error 23000(Can't write; duplicate key in table)，因为101被分配给了行(NULL， 'b')，而行(101，'c')插入失败。
+
+* 在一系列插入语句的中间修改AUTO_INCREMENT列值
+
+  在MySQL 5.7和更早的版本中，在一系列INSERT语句中间修改AUTO_INCREMENT列值可能会导致“Duplicate entry”的错误。例如，如果执行更新操作，将一行数据的AUTO_INCREMENT列值更改为大于当前最大自动递增值的值，则随后的使用自增插入的可能会导致“Duplicate entry”错误。在MySQL 8.0及以后版本中，如果您将一行数据的AUTO_INCREMENT列的值修改为一个大于当前最大自动递增值的值，那么新值将被持久化，随后的插入操作将从新的更大的值开始分配自动递增的值。下面的示例演示了此行为。
+
+  ```mysql
+  mysql> CREATE TABLE t1 (
+      -> c1 INT NOT NULL AUTO_INCREMENT,
+      -> PRIMARY KEY (c1)
+      ->  ) ENGINE = InnoDB;
+  
+  mysql> INSERT INTO t1 VALUES(0), (0), (3);
+  
+  mysql> SELECT c1 FROM t1;
+  +----+
+  | c1 |
+  +----+
+  |  1 |
+  |  2 |
+  |  3 |
+  +----+
+  
+  mysql> UPDATE t1 SET c1 = 4 WHERE c1 = 1;
+  
+  mysql> SELECT c1 FROM t1;
+  +----+
+  | c1 |
+  +----+
+  |  2 |
+  |  3 |
+  |  4 |
+  +----+
+  
+  mysql> INSERT INTO t1 VALUES(0);
+  
+  mysql> SELECT c1 FROM t1;
+  +----+
+  | c1 |
+  +----+
+  |  2 |
+  |  3 |
+  |  4 |
+  |  5 |
+  +----+
+  ```
+
+  
+
+  **初始化InnoDB AUTO_INCREMENT计数器**
+
+  本节描述InnoDB如何初始化AUTO_INCREMENT计数器。
+
+  
+
+  
+
+  
+
+  
+
+  
+
 
 
 
