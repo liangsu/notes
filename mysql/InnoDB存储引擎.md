@@ -1506,7 +1506,7 @@ SELECT MAX(ai_col) FROM table_name FOR UPDATE;
 
 
 
-##### 15.6.2.1 聚集索引与辅助索引
+##### 15.6.2.2 聚集索引与辅助索引
 
 每个InnoDB表都有一个特殊的索引，称为聚集索引，用于存储行数据。通常，聚集索引是主键的同义词。要从查询、插入和其他数据库操作中获得最佳性能，您必须了解InnoDB如何使用聚集索引来优化每个表最常见的查找和DML操作。
 
@@ -1540,37 +1540,132 @@ InnoDB在创建或重新构建b树索引时执行批量加载，这种创建索�
 
 使用特定InnoDB页面大小的MySQL实例不能使用使用不同页面大小的实例的数据文件或日志文件。
 
+##### 15.6.2.3 排序索引的构建
+
+InnoDB在创建或重建索引时执行批量加载，而不是每次插入一条索引记录。这种创建索引的方法也称为排序索引构建。对空间索引不支持排序索引构建。
+
+索引构建有三个阶段。在第一阶段，扫描聚集索引，生成索引条目并添加到排序缓冲区。当排序缓冲区满时，将对条目进行排序并将其写入临时中间文件。这个过程也称为“运行”。在第二阶段，当一次或多次运行写入临时中间文件时，将对文件中的所有条目执行合并排序。在第三个也是最后一个阶段，排序后的元素被插入到b树中。
+
+在引入排序索引构建之前，使用insert api将索引项一次一个地插入到b树中。该方法涉及打开b树游标以查找插入位置，然后使用乐观插入将条目插入到b树页面中。如果由于页面已满而导致插入失败，则将执行悲观插入，这涉及打开b -树游标，并根据需要拆分和合并b -树节点，以便为条目找到空间。这种“自上而下”建立索引的方法的缺点是搜索插入位置的代价，以及b树节点的不断分裂和合并。
+
+排序索引构建使用“自下而上”的方法来构建索引。使用这种方法，对最右叶页面的引用被保存在b树的所有级别上。分配所需b -树深度的最右边的叶页，并根据其排序顺序插入条目。一旦叶页满了，节点指针就被附加到父页，并为下一次插入分配同级叶页。这个过程一直持续到插入所有条目，这可能会导致插入到根级别。当分配一个同级页面时，释放对先前固定的叶页面的引用，新分配的叶页面成为最右边的叶页面和新的默认插入位置。
+
+**为将来的索引增长保留B-tree页面空间**
+
+要为将来的索引增长留出空间，可以使用`innodb_fill_factor`配置选项来保留一定百分比的b -树页面空间。例如，在排序索引构建期间，将`innodb_fill_factor`设置为80可以保留b -树页面中20%的空间。此设置同时适用于B-tree叶页和非叶页。它不适用于用于文本或BLOB条目的外部页面。保留的空间量可能与配置的不完全相同，因为`innodb_fill_factor`值被解释为一个提示，而不是一个硬限制。
+
+**排序索引构建和全文索引支持**
+
+全文索引支持排序索引构建。以前，SQL用于将条目插入到全文索引中。
+
+**排序索引构建和压缩表**
+
+对于压缩的表，前面的索引创建方法在压缩和未压缩的页面上都追加了条目。当修改日志(表示压缩页上的空闲空间)满时，将重新压缩压缩页。如果因为缺少空间而压缩失败，那么页将被分割。使用排序索引构建时，条目只会追加到未压缩的页面。当未压缩的页面已满时，将对其进行压缩。自适应填充用于确保压缩在大多数情况下成功，但如果压缩失败，将分割页面并再次尝试压缩。这个过程一直持续到压缩成功为止。更多关于B-Tree页面压缩的信息，请参见15.9.1.5节，[InnoDB表如何压缩](https://dev.mysql.com/doc/refman/8.0/en/innodb-compression-internals.html)。
+
+**排序索引构建和重做日志记录**
+
+在排序索引构建期间禁用redo日志记录。相反，有一个检查点来确保索引构建能够承受崩溃或失败。检查点强制将所有脏页写入磁盘。在排序索引构建期间，会定期通知页清理器线程刷新脏页，以确保检查点操作可以快速处理。通常，当清理页面的数量低于设置的阈值时，页面清理器线程会清除脏页面。对于已排序的索引构建，脏页面会被迅速刷新，以减少检查点开销，并将I/O和CPU活动并行化。
+
+**排序索引构建和优化器统计**
+
+排序后的索引构建可能导致优化器统计信息与前面的索引创建方法生成的统计信息不同。统计数据的差异不会影响工作负载性能，这是由于用于填充索引的不同算法造成的。
 
 
 
+##### 15.6.2.4 InnoDB全文索引
 
+全文索引是在基于文本的列(CHAR、VARCHAR或text列)上创建的，以帮助加快对这些列中包含的数据的查询和DML操作，省略任何定义为stopwords的单词。
 
+全文索引定义为`CREATE TABLE`语句的一部分，或者使用`ALTER TABLE`或`CREATE index`将其添加到现有表中。
 
+全文搜索使用[`MATCH() ... AGAINST`](https://dev.mysql.com/doc/refman/8.0/en/fulltext-search.html#function_match)语法。有关用法的信息，请参阅12.9节“全文检索功能”。
 
+InnoDB全文索引在本节的以下主题下进行描述：
 
+- [InnoDB Full-Text Index Design](https://dev.mysql.com/doc/refman/8.0/en/innodb-fulltext-index.html#innodb-fulltext-index-design)
+- [InnoDB Full-Text Index Tables](https://dev.mysql.com/doc/refman/8.0/en/innodb-fulltext-index.html#innodb-fulltext-index-tables)
+- [InnoDB Full-Text Index Cache](https://dev.mysql.com/doc/refman/8.0/en/innodb-fulltext-index.html#innodb-fulltext-index-cache)
+- [InnoDB Full-Text Index Document ID and FTS_DOC_ID Column](https://dev.mysql.com/doc/refman/8.0/en/innodb-fulltext-index.html#innodb-fulltext-index-docid)
+- [InnoDB Full-Text Index Deletion Handling](https://dev.mysql.com/doc/refman/8.0/en/innodb-fulltext-index.html#innodb-fulltext-index-deletion)
+- [InnoDB Full-Text Index Transaction Handling](https://dev.mysql.com/doc/refman/8.0/en/innodb-fulltext-index.html#innodb-fulltext-index-transaction)
+- [Monitoring InnoDB Full-Text Indexes](https://dev.mysql.com/doc/refman/8.0/en/innodb-fulltext-index.html#innodb-fulltext-index-monitoring)
 
+**InnoDB全文索引设计**
 
+InnoDB全文索引采用倒排索引设计。倒排索引存储有一个单词列表，对于每个单词，存储该单词出现在其中的文档列表。为了支持近距离搜索，还将每个单词的位置信息存储为字节偏移量。
 
+**InnoDB全文索引表**
 
+当创建一个InnoDB全文索引时，会创建一组索引表，如下所示:
 
+```mysql
+mysql> CREATE TABLE opening_lines (
+       id INT UNSIGNED AUTO_INCREMENT NOT NULL PRIMARY KEY,
+       opening_line TEXT(500),
+       author VARCHAR(200),
+       title VARCHAR(200),
+       FULLTEXT idx (opening_line)
+       ) ENGINE=InnoDB;
 
+mysql> SELECT table_id, name, space from INFORMATION_SCHEMA.INNODB_TABLES
+       WHERE name LIKE 'test/%';
++----------+----------------------------------------------------+-------+
+| table_id | name                                               | space |
++----------+----------------------------------------------------+-------+
+|      333 | test/fts_0000000000000147_00000000000001c9_index_1 |   289 |
+|      334 | test/fts_0000000000000147_00000000000001c9_index_2 |   290 |
+|      335 | test/fts_0000000000000147_00000000000001c9_index_3 |   291 |
+|      336 | test/fts_0000000000000147_00000000000001c9_index_4 |   292 |
+|      337 | test/fts_0000000000000147_00000000000001c9_index_5 |   293 |
+|      338 | test/fts_0000000000000147_00000000000001c9_index_6 |   294 |
+|      330 | test/fts_0000000000000147_being_deleted            |   286 |
+|      331 | test/fts_0000000000000147_being_deleted_cache      |   287 |
+|      332 | test/fts_0000000000000147_config                   |   288 |
+|      328 | test/fts_0000000000000147_deleted                  |   284 |
+|      329 | test/fts_0000000000000147_deleted_cache            |   285 |
+|      327 | test/opening_lines                                 |   283 |
++----------+----------------------------------------------------+-------+
+```
 
+前6个表表示倒排索引，称为辅助索引表（auxiliary index tables）。当对传入的文档进行标记时，单个单词(也称为“令牌”)连同位置信息和相关的文档ID (DOC_ID)一起插入索引表。根据单词第一个字符的字符集排序权重，将单词完全排序并在六个索引表中分区。
 
+倒排索引被划分为6个辅助索引表，目的是为了支持并行索引创建。默认情况下，两个线程对索引表进行标记、排序和插入单词和关联数据。线程的数量可以使用`innodb_ft_sort_pll_degree`选项进行配置。在大型表上创建全文索引时，考虑增加线程的数量。
 
+辅助索引表名用`fts_`作为前缀，用`index_*`作为后缀。每个辅助索引表通过被索引表名中的十六进制值与索引表关联，该值与被索引表的`table_id`匹配。例如，`test/opening_lines`表的`table_id`是327，其十六进制值是`0x147`。如上例所示，“147”十六进制值出现在与`test/opening_lines`表关联的辅助索引表的名称中。
 
+表示全文索引的`index_id`的十六进制值也出现在辅助索引表名中。例如，在辅助表名`test/fts_0000000000000147_00000000000001c9_index_1`中，十六进制值`1c9`的十进制值为457，可以通过查询`INFORMATION_SCHEMA.INNODB_INDEXES`表来查询opening_lines表(idx)上定义的索引的index_id，这个值(457)的表。
 
+```mysql
+mysql> SELECT index_id, name, table_id, space from INFORMATION_SCHEMA.INNODB_INDEXES
+       WHERE index_id=457;
++----------+------+----------+-------+
+| index_id | name | table_id | space |
++----------+------+----------+-------+
+|      457 | idx  |      327 |   283 |
++----------+------+----------+-------+
+```
 
+如果主表是在file-per-table表空间中创建的，那么索引表存储在它们自己的表空间中。
 
+前面示例中显示的其他索引表称为公共索引表（common index tables），用于删除处理和存储全文索引的内部状态。与为每个全文索引创建的反向索引表不同，这组表对于在特定表上创建的所有全文索引是通用（common ）的。
 
+即使删除全文索引，也保留common index tables。删除全文索引时，将保留为索引创建的`FTS_DOC_ID`列，因为删除`FTS_DOC_ID`列将需要重新构建表。需要使用Common axillary tables来管理FTS_DOC_ID列。
 
+* `fts_*_deleted` 和`fts_*_deleted_cache`
 
+  包含已删除但数据尚未从全文索引中删除的文档id (DOC_ID)。`fts_*_deleted_cache`是`fts_*_deleted`表的内存版本。
 
+* `fts_*_being_deleted` 和 `fts_*_being_deleted_cache`
 
+  包含文档id (DOC_ID)，用于已删除的文档以及当前正在从全文索引中删除其数据的文档。`fts_*_being_deleted_cache`表是`fts_*_being_deleted`表的内存版本。
 
+* `fts_*_config`
 
+  存储关于全文索引的内部状态的信息。最重要的是，它存储`FTS_SYNCED_DOC_ID`，它标识已经解析并刷新到磁盘的文档。在崩溃恢复的情况下，使用`FTS_SYNCED_DOC_ID`值来标识尚未刷新到磁盘的文档，以便重新解析文档并将其添加回全文索引缓存中。要查看这个表中的数据，请查询`INFORMATION_SCHEMA.INNODB_FT_CONFIG`表。
 
+  
 
-
+  
 
 
 
