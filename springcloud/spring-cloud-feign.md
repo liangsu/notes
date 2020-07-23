@@ -10,6 +10,35 @@
 	5. 生成默认代理类 
 	6. 注入到spring容器
 
+
+## 1. 注册BeanDefinition
+
+1. @EnableFeignClients注解，导入BeanDefinition的注册类FeignClientsRegistrar（实现接口：ImportBeanDefinitionRegistrar）
+
+2. 注册类FeignClientsRegistrar注册bd的流程：
+	* 注册默认的 `FeignClientSpecification` 的`BeanDefinition`
+	* 扫描出带有注解`@FeignClient`的类，
+		* 为每个类注册一个配置类bd: FeignClientSpecification
+		* 注册bd: FeignClientFactoryBean
+
+## 2. 实例化Feign上下文对象FeignContext
+
+1. 通过springboot的spi机制加载，对应配置文件`spring.factories`，加载类`FeignAutoConfiguration`
+
+2. FeignAutoConfiguration的流程：
+	* 根据FeignClientSpecification，创建FeignContext，FeignContext中包含有所有实例化后的`FeignClientSpecification`
+	* 创建Targeter，扩展用于根据hystrix创建不同特征的代理对象
+	* 创建http客户端对象，ApacheHttpClient、OkHttpClient、Client.Default（默认实现）
+	
+
+	FeignContext
+		继承自： NamedContextFactory
+		
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------
+
 ## 1.feign调用关键类：
 
 ### 1.1 EnableFeignClients： 

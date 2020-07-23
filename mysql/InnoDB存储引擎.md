@@ -185,6 +185,18 @@ InnoDB在内部为数据库中存储的每一行添加3个字段。一个6字节
 
 如果在表中以相同的速度以较小的批插入和删除行，那么清除线程就会开始滞后，并且由于所有的“dead”行，表可能会变得越来越大，从而使所有内容都绑定到磁盘上，并且非常慢。在这种情况下，通过调优 [`innodb_max_purge_lag`](https://dev.mysql.com/doc/refman/8.0/en/innodb-parameters.html#sysvar_innodb_max_purge_lag) 系统变量来控制新的行操作，并为清除线程分配更多的资源。更多信息请参见15.14节“InnoDB启动选项和系统变量”
 
+>个人总结：
+>
+>额外的3个字段：
+>
+>DB_TRX_ID： 表示插入或更新行的最后一个事务的事务标识符
+>
+>DB_ROLL_PTR： 指向写入回滚段的undo log record，在事务没有提交的情况下，如果读取了一行数据，这行数据有这个指针，那么会重新构建这样数据的以前的版本
+>
+>DB_ROW_ID： 在建表的时候没有主键、没有不为空的唯一索引，会新增这一列
+>
+>
+
 ### 多版本化和二级索引
 
 InnoDB多版本并发控制(MVCC)处理二级索引与聚集索引不同。聚集索引中的记录被立即更新，并将它们隐藏的系统字段指向undo log entries ，可以从这些条目重建早期版本的记录。与聚集索引记录不同，辅助索引记录不包含隐藏的系统列，也不立即更新。
@@ -1665,9 +1677,29 @@ mysql> SELECT index_id, name, table_id, space from INFORMATION_SCHEMA.INNODB_IND
 
   
 
-  
+  > 剩余部分暂略
 
 
+
+#### 15.6.3 表空间
+
+[15.6.3.1 The System Tablespace](https://dev.mysql.com/doc/refman/8.0/en/innodb-system-tablespace.html)
+
+[15.6.3.2 File-Per-Table Tablespaces](https://dev.mysql.com/doc/refman/8.0/en/innodb-file-per-table-tablespaces.html)
+
+[15.6.3.3 General Tablespaces](https://dev.mysql.com/doc/refman/8.0/en/general-tablespaces.html)
+
+[15.6.3.4 Undo Tablespaces](https://dev.mysql.com/doc/refman/8.0/en/innodb-undo-tablespaces.html)
+
+[15.6.3.5 Temporary Tablespaces](https://dev.mysql.com/doc/refman/8.0/en/innodb-temporary-tablespace.html)
+
+[15.6.3.6 Moving Tablespace Files While the Server is Offline](https://dev.mysql.com/doc/refman/8.0/en/innodb-moving-data-files-offline.html)
+
+[15.6.3.7 Disabling Tablespace Path Validation](https://dev.mysql.com/doc/refman/8.0/en/innodb-disabling-tablespace-path-validation.html)
+
+##### 15.6.3.1 系统表空间
+
+系统表空间是change buffer的存储区域。如果表是在系统表空间中创建的，而不是在每个表或一般表空间中创建文件，那么它还可能包含表和索引数据。在以前的MySQL版本中，系统表空间包含InnoDB数据字典。在MySQL 8.0中，InnoDB将元数据存储在MySQL数据字典中。见第14章，MySQL数据字典。在以前的MySQL版本中，系统表空间也包含双重写入缓冲区存储区域。从MySQL 8.0.20开始，这个存储区域驻留在单独的doublewrite文件中。参见15.6.4节，双写缓冲区。
 
 
 
