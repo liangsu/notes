@@ -38,6 +38,13 @@ show variables like '%innodb_redo_log_archive_dirs%';
 show variables like '%innodb_version%';
 -- 查看innodb读写线程的数量
 show variables like '%innodb_%io_thread%';
+-- 查看innodb的清理undo log的线程数量。
+show variables like '%innodb_purge_threads%';
+
+-- 查看innodb的缓冲池实例的个数，在缓冲池大小在1G以上这个参数才生效
+show variables like '%innodb_buffer_pool_instances%';
+-- 缓冲池的大小
+show variables like '%innodb_buffer_pool_size%';
 
 -- 查看innodb LRU列表中old列表的占比，默认37%（差不多3/8）
 show variables like '%innodb_old_blocks_pct%';
@@ -54,6 +61,12 @@ show variables like '%innodb_io_capacity%';
 show variables like '%innodb_purge_batch_size%';
 -- 是否启用自适应刷新脏页，通过判断redo log的速度来决定刷新脏页的数量
 show variables like '%innodb_adaptive_flushing%';
+
+-- change buffer最大使用内存占缓冲池的百分比，该参数的最大有效值50
+show variables like '%innodb_change_buffer_max_size%';
+-- 开启buffer的选项，可选参数：inserts、deletes、purges、changes、all、none
+show variables like '%innodb_change_buffering%';
+
 
 
 -- 手动配置redo log归档：当写很频繁的时候，redo log的修改速度远远大于备份的速度，需要将redo log归档。subdir可选参数，归档的子目录名称
@@ -73,6 +86,8 @@ select table_name, space, page_number, page_type from information_schema.INNODB_
 select * from employees;
 select * from salaries;
 select * from departments where dept_no = 'd009';
+
+select * from cas.data_user;
 
 create table employees_test like employees;
 insert into employees_test select * from employees limit 100;
