@@ -67,6 +67,114 @@ show variables like '%innodb_change_buffer_max_size%';
 -- 开启buffer的选项，可选参数：inserts、deletes、purges、changes、all、none
 show variables like '%innodb_change_buffering%';
 
+-- 刷新邻接页
+show variables like '%innodb_flush_neighbors%';
+-- 关闭参数
+show variables like '%innodb_fast_shutdown%';
+-- 启动恢复策略，可选范围：0-6，
+show variables like '%innodb_force_recovery%';
+
+-- 设置参数的语法：
+select @@session.read_buffer_size;
+set @@global.long_query_time = 1;
+set @@global.long_query_time = 1;
+
+
+-- 查看错误日志的位置
+show variables like '%log_error%';
+
+-- 慢查询日志的时间阈值，默认10秒
+show variables like '%long_query_time%';
+-- 超过最小检查行数的sql，记录慢查询日志
+show variables like '%min_examined_row_limit%';
+-- 是否开启慢查询日志
+show variables like '%slow_query_log%';
+-- 慢查询日志位置
+show variables like '%slow_query_log_file%';
+-- 是否记录管理sql语句的慢查询日志，包括：ALTER TABLE, ANALYZE TABLE, CHECK TABLE, CREATE INDEX, DROP INDEX, OPTIMIZE TABLE, and REPAIR TABLE
+show variables like '%log_slow_admin_statements%';
+-- 如果是从库，复制数据的时候，是否将慢sql记录slow log。只有基于sql语句的复制或者混合复制才会记录慢查询日志。
+show variables like '%log_slow_slave_statements%';
+-- 执行的sql如果没有使用索引，会将sql记录到慢查询日志
+show variables like '%log_queries_not_using_indexes%';
+-- 每分钟记录到slow log且未使用索引的sql的语句次数，默认值0，表示没有限制。
+show variables like '%log_throttle_queries_not_using_indexes%';
+-- 慢查询日志输出到文件还是表
+show variables like '%log_output%';
+-- 慢查询日志中是否输出额外的统计信息
+show variables like '%log_slow_extra%';
+
+-- 是否启用查询日志
+show variables like '%general_log%';
+
+set global general_log = 1;
+select * from mysql.slow_log;
+
+
+show master status; -- 42843959 42844282
+show binlog events in 'mysql-bin.000032';
+-- binlog单个日志文件的最大值，默认值1073741824（1G），单位：byte
+show variables like '%max_binlog_size%';
+-- 未提交的二进制日志会记录到缓冲中，缓冲大小有这个参数确定，这个缓冲是每个会话一个缓冲。
+show variables like '%binlog_cache_size%';
+-- 每写缓冲多少次就同步到磁盘
+show variables like '%sync_binlog%';
+-- 如果当前数据库是复制中的slave，则它不会将从master获取的binlog写入到自己的binlog中去，若需要，则需要开启该参数，在master->slave->slave中需要。
+show variables like '%log_slave_update%';
+-- binlog记录的格式，可选值：STATEMENT、ROW、MIXED
+show variables like '%binlog_format%';
+
+-- socket链接文件
+show variables like '%socket%';
+-- 进程文件
+show variables like '%pid_file%';
+
+-- 是否开启独立表空间
+show variables like '%innodb_file_per_table%';
+
+-- mysql将数据页读入内存后，会将页中的pageHeader与file Trailer中做校验，判断该页是否完整。
+show variables like '%innodb_checksum_algorithm%';
+
+show table status like 'mytest';
+
+select count(*) from titles;
+create table sal_test2 like salaries;
+insert into sal_test select * from salaries;
+truncate table sal_test;
+
+create table mytest(
+	t1 varchar(10),
+	t2 varchar(10),
+	t3 char(10),
+	t4 varchar(10)
+) engine=innodb charset=latin1 row_format=compact;
+
+create table test(
+	a varchar(65532)
+)engine=innodb charset=latin1;
+
+insert into test select repeat('a', 65532);
+
+select * from test;
+
+show WARNINGS;
+
+select * from mytest;
+drop table mytest;
+
+insert into mytest values('a', 'bb', 'cc', 'ddd');
+insert into mytest values('e', 'ff', 'gg', 'hhh');
+insert into mytest values('i', null, null, 'jjj');
+
+
+select count(*) from sal_test t limit 100;
+update 
+-- 12
+-- 64 252
+start TRANSACTION;
+update sal_test set salary = 50 limit 1;
+commit;
+ROLLBACK;
 
 
 -- 手动配置redo log归档：当写很频繁的时候，redo log的修改速度远远大于备份的速度，需要将redo log归档。subdir可选参数，归档的子目录名称
