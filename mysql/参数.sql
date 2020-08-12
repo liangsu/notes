@@ -251,3 +251,92 @@ ALTER TABLE test TABLESPACE=innodb_file_per_table;
 
 DROP TABLESPACE ts2
 
+
+
+
+
+
+
+
+
+
+create table z(
+	a int primary key,
+	b int,
+	c int,
+	key (b)
+);
+
+insert into z select 1, 1, 1;
+insert into z select 2, 2, 2;
+insert into z select 3, 3, 3;
+
+
+
+
+
+------------------------------------------------------------------------------------------------
+drop table tast_load;
+
+create table tast_load(
+	a int ,
+	b char(80)
+)engine = innodb;
+
+drop PROCEDURE if exists p_load;
+
+DELIMITER  //
+create PROCEDURE p_load(count int UNSIGNED)
+begin
+	DECLARE s int unsigned DEFAULT 1;
+	DECLARE c char(80) DEFAULT repeat('a', 80);
+	
+	while s <= count do
+		insert into tast_load select null, c;
+		commit;
+		set s = s + 1;
+	end while;
+	
+end;
+// 
+DELIMITER;
+
+
+call p_load(1000);
+/*
+	插入1000条数据
+	innodb_flush_log_at_trx_commit值  机械硬盘	固态硬盘
+-- 0: 37.784s  34.903s
+-- 1: 64.993s	 58.491s
+-- 2: 33.384s  27.192s
+*/
+
+select * from tast_load;
+truncate table tast_load;
+
+
+select count(*) from tast_load;
+show variables like '%innodb_flush_log_at_trx_commit%';
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
