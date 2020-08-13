@@ -155,6 +155,14 @@ public interface MethodBeforeAdvice extends BeforeAdvice {
 }
 ```
 
+### 3.3 advisor api
+
+在Spring中，Advisor是aspect，这种aspect只包含一个advice对象，并关联它的pointcut。
+
+除了introductions的特殊情况，advisor可以和任何advice一起使用。`org.springframework.aop.support.DefaultPointcutAdvisor`是最常用的advisor类，它能够和`MethodInterceptor`、`BeforeAdvice`或`ThrowsAdvice`一起使用。
+
+可以在Spring中将advisor和advice类型混合在同一个AOP代理中。例如，您可以在一个代理配置中使用interception around advice, throws advice, and before advice，Spring会自动创建必要的拦截器链。
+
 
 
 ## 4. 使用`ProxyFactoryBean`创建aop代理

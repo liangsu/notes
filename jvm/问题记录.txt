@@ -30,6 +30,8 @@ https://github.com/bjmashibing/JVM/blob/master/03_01_JMM.md
 mesi协议： https://blog.csdn.net/ZoeyyeoZ/article/details/51804647?locationNum=13
 
 
+https://docs.oracle.com/javase/specs/jvms/se8/html/
+
 ## volatile
 
 问题：加了volatile和没有加volatile的变量，会有什么不同？

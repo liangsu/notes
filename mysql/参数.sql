@@ -14,6 +14,9 @@ show variables like '%innodb_rollback_segments%';
 show variables like '%innodb_undo_log_truncate%';
 -- undo表空间的最大大小，超过这个大小，如果自动截断undo表空间打开了，会触发自动截断表空间。默认值1073741824 bytes (1024 MiB)
 show variables like '%innodb_max_undo_log_size%';
+-- undo表空间的文件数量，这样每个回滚段可以平均的分配到几个文件中。
+show variables like '%innodb_undo_tablespaces%';
+
 -- purge线程查询undo表空间去截断的频率：每次多少次？
 SELECT @@innodb_purge_rseg_truncate_frequency;
 -- 临时表空间的路径，默认：#innodb_temp
@@ -134,47 +137,13 @@ show variables like '%innodb_file_per_table%';
 
 -- mysql将数据页读入内存后，会将页中的pageHeader与file Trailer中做校验，判断该页是否完整。
 show variables like '%innodb_checksum_algorithm%';
+-- 
+show variables like '%par%';
+-- 查看分区信息
+select * from information_schema.`PARTITIONS` where table_schema = database();
 
-show table status like 'mytest';
-
-select count(*) from titles;
-create table sal_test2 like salaries;
-insert into sal_test select * from salaries;
-truncate table sal_test;
-
-create table mytest(
-	t1 varchar(10),
-	t2 varchar(10),
-	t3 char(10),
-	t4 varchar(10)
-) engine=innodb charset=latin1 row_format=compact;
-
-create table test(
-	a varchar(65532)
-)engine=innodb charset=latin1;
-
-insert into test select repeat('a', 65532);
-
-select * from test;
-
-show WARNINGS;
-
-select * from mytest;
-drop table mytest;
-
-insert into mytest values('a', 'bb', 'cc', 'ddd');
-insert into mytest values('e', 'ff', 'gg', 'hhh');
-insert into mytest values('i', null, null, 'jjj');
-
-
-select count(*) from sal_test t limit 100;
-update 
--- 12
--- 64 252
-start TRANSACTION;
-update sal_test set salary = 50 limit 1;
-commit;
-ROLLBACK;
+-- 查看表的行格式、等信息
+show table status like 'employees';
 
 
 -- 手动配置redo log归档：当写很频繁的时候，redo log的修改速度远远大于备份的速度，需要将redo log归档。subdir可选参数，归档的子目录名称
@@ -190,64 +159,188 @@ select * from information_schema.INNODB_BUFFER_PAGE_LRU where compressed_size <>
 select table_name, space, page_number, page_type from information_schema.INNODB_BUFFER_PAGE_LRU where oldest_modification > 0;
 
 
-
-select * from employees;
-select * from salaries;
-select * from departments where dept_no = 'd009';
-
-select * from cas.data_user;
-
-create table employees_test like employees;
-insert into employees_test select * from employees limit 100;
-
-delete from employees_test;
-show create table employees_test;
-create index idx_et_fname on employees_test(first_name);
-
-select * from depart_test;
-update depart_test set dept_name = 'asdfadsf' where dept_no = 'd005';
-
-
-
-select @@INNODB_SESSION_TEMP_TABLESPACES;
-select * from INFORMATION_SCHEMA.INNODB_TEMP_TABLE_INFO ;
-
-
-SELECT * FROM INFORMATION_SCHEMA.FILES WHERE TABLESPACE_NAME='innodb_temporary';
-
-
 -- 1. 查询文件与表空间的关系
 select * from INFORMATION_SCHEMA.FILES WHERE FILE_TYPE LIKE 'UNDO LOG'
 -- 监控表空间的状态
 SELECT NAME, STATE FROM INFORMATION_SCHEMA.INNODB_TABLESPACES WHERE NAME LIKE '%%';
 
-
-
-
-
-
-
-show engine innodb status;
-
-TRUNCATE test.opening_lines;
-
 CREATE UNDO TABLESPACE undo2 ADD DATAFILE 'file_name.ibu';
-
-
 SELECT * FROM INFORMATION_SCHEMA.FILES WHERE FILE_TYPE LIKE 'UNDO LOG';
 
-
-create table test like employees;
-insert into test select * from employees
-
-TRUNCATE test
-
-
 CREATE TABLESPACE `ts1` ADD DATAFILE 'E:\\Tools\\mysql-8.0.21-winx64\\data2\\ts1.ibd' Engine=InnoDB;
+
 CREATE TABLESPACE `ts2` Engine=InnoDB;
+show engine innodb status;
 
 ALTER TABLE test TABLESPACE ts1
 ALTER TABLE test TABLESPACE=innodb_file_per_table;
 
-DROP TABLESPACE ts2
+
+
+
+-- python C:/Users/Administrator/Desktop/mysql/david-mysql-tools/trunkvpy_innodb_page_type/py_innodb_page_info.py E:\\Tools\\mysql-8.0.21-winx64\\data\\tpcc_big\\customer.ibd
+
+
+
+
+show engine innodb mutex;
+
+show full PROCESSLIST;
+
+select * from information_schema.innodb_trx;
+
+select * from information_schema.innodb_locks;
+
+select * from information_schema.INNODB_lock_waits;
+
+-- 超时等待时间
+show variables like '%innodb_lock_wait_timeout%';
+
+show engine innodb status;
+
+select @@tx_isolation
+show variables like '%transaction_isolation%';
+
+drop table t;
+create table t (
+	a int primary key
+);
+select * from t;
+
+drop table z;
+create table z (
+	a int primary key,
+	b int,
+	c varchar(10),
+	d varchar(20)
+);
+show index from z;
+
+select * from z;
+insert into z select 1, 1, '1', '1';
+insert into z select 2, 2, '2', '2';
+insert into z select 3, 3, '3', '3';
+
+
+delete from z;
+
+
+=====================================
+2020-08-05 13:33:08 0xae4 INNODB MONITOR OUTPUT
+=====================================
+Per second averages calculated from the last 20 seconds
+-----------------
+BACKGROUND THREAD
+-----------------
+srv_master_thread loops: 9 srv_active, 0 srv_shutdown, 79458 srv_idle
+srv_master_thread log flush and writes: 0
+----------
+SEMAPHORES
+----------
+OS WAIT ARRAY INFO: reservation count 44
+OS WAIT ARRAY INFO: signal count 43
+RW-shared spins 0, rounds 0, OS waits 0
+RW-excl spins 0, rounds 0, OS waits 0
+RW-sx spins 0, rounds 0, OS waits 0
+Spin rounds per wait: 0.00 RW-shared, 0.00 RW-excl, 0.00 RW-sx
+------------
+TRANSACTIONS
+------------
+Trx id counter 4676
+Purge done for trx's n:o < 4672 undo n:o < 0 state: running but idle
+History list length 0
+LIST OF TRANSACTIONS FOR EACH SESSION:
+---TRANSACTION 283642581191264, not started
+0 lock struct(s), heap size 1136, 0 row lock(s)
+---TRANSACTION 283642581190432, not started
+0 lock struct(s), heap size 1136, 0 row lock(s)
+---TRANSACTION 283642581189600, not started
+0 lock struct(s), heap size 1136, 0 row lock(s)
+---TRANSACTION 283642581187104, not started
+0 lock struct(s), heap size 1136, 0 row lock(s)
+---TRANSACTION 283642581186272, not started
+0 lock struct(s), heap size 1136, 0 row lock(s)
+---TRANSACTION 4674, ACTIVE 5961 sec
+1 lock struct(s), heap size 1136, 1 row lock(s)
+MySQL thread id 11, OS thread handle 6416, query id 257 localhost ::1 root
+--------
+FILE I/O
+--------
+I/O thread 0 state: wait Windows aio (insert buffer thread)
+I/O thread 1 state: wait Windows aio (log thread)
+I/O thread 2 state: wait Windows aio (read thread)
+I/O thread 3 state: wait Windows aio (read thread)
+I/O thread 4 state: wait Windows aio (read thread)
+I/O thread 5 state: wait Windows aio (read thread)
+I/O thread 6 state: wait Windows aio (write thread)
+I/O thread 7 state: wait Windows aio (write thread)
+I/O thread 8 state: wait Windows aio (write thread)
+I/O thread 9 state: wait Windows aio (write thread)
+Pending normal aio reads: [0, 0, 0, 0] , aio writes: [0, 0, 0, 0] ,
+ ibuf aio reads:, log i/o's:, sync i/o's:
+Pending flushes (fsync) log: 0; buffer pool: 0
+2350 OS file reads, 489 OS file writes, 172 OS fsyncs
+0.00 reads/s, 0 avg bytes/read, 0.00 writes/s, 0.00 fsyncs/s
+-------------------------------------
+INSERT BUFFER AND ADAPTIVE HASH INDEX
+-------------------------------------
+Ibuf: size 1, free list len 0, seg size 2, 0 merges
+merged operations:
+ insert 0, delete mark 0, delete 0
+discarded operations:
+ insert 0, delete mark 0, delete 0
+Hash table size 34679, node heap has 0 buffer(s)
+Hash table size 34679, node heap has 1 buffer(s)
+Hash table size 34679, node heap has 0 buffer(s)
+Hash table size 34679, node heap has 0 buffer(s)
+Hash table size 34679, node heap has 1 buffer(s)
+Hash table size 34679, node heap has 0 buffer(s)
+Hash table size 34679, node heap has 1 buffer(s)
+Hash table size 34679, node heap has 4 buffer(s)
+0.00 hash searches/s, 0.00 non-hash searches/s
+---
+LOG
+---
+Log sequence number          544548834
+Log buffer assigned up to    544548834
+Log buffer completed up to   544548834
+Log written up to            544548834
+Log flushed up to            544548834
+Added dirty pages up to      544548834
+Pages flushed up to          544548834
+Last checkpoint at           544548834
+104 log i/o's done, 0.00 log i/o's/second
+----------------------
+BUFFER POOL AND MEMORY
+----------------------
+Total large memory allocated 137363456
+Dictionary memory allocated 453630
+Buffer pool size   8192
+Free buffers       5831
+Database pages     2346
+Old database pages 886
+Modified db pages  0
+Pending reads      0
+Pending writes: LRU 0, flush list 0, single page 0
+Pages made young 0, not young 0
+0.00 youngs/s, 0.00 non-youngs/s
+Pages read 2194, created 152, written 299
+0.00 reads/s, 0.00 creates/s, 0.00 writes/s
+No buffer pool page gets since the last printout
+Pages read ahead 0.00/s, evicted without access 0.00/s, Random read ahead 0.00/s
+LRU len: 2346, unzip_LRU len: 0
+I/O sum[0]:cur[0], unzip sum[0]:cur[0]
+--------------
+ROW OPERATIONS
+--------------
+0 queries inside InnoDB, 0 queries in queue
+0 read views open inside InnoDB
+Process ID=3740, Main thread ID=00000000000017E4 , state=sleeping
+Number of rows inserted 0, updated 0, deleted 0, read 1800144
+0.00 inserts/s, 0.00 updates/s, 0.00 deletes/s, 0.00 reads/s
+Number of system rows inserted 1, updated 342, deleted 0, read 6862
+0.00 inserts/s, 0.00 updates/s, 0.00 deletes/s, 0.00 reads/s
+----------------------------
+END OF INNODB MONITOR OUTPUT
+============================
 
