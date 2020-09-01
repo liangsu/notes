@@ -1,0 +1,12 @@
+
+## Checkpoints
+
+mongo会将内存中的数据，刷新到WiredTiger，扮演checkpoint的角色
+
+MongoDB配置WiredTiger以每60秒或每2g的Journal数据执行checkpoint(即将快照数据写入磁盘)
+
+如果没有Journal，那么在上次checkpoint到现在为止的数据可能会丢失。
+
+## Journal
+
+使用journal来持久化在两个Checkpoints之间的数据修改。

@@ -182,19 +182,48 @@ ALTER TABLE test TABLESPACE=innodb_file_per_table;
 
 
 
-
+-- 查看latch信息
 show engine innodb mutex;
 
 show full PROCESSLIST;
-
+-- 
 select * from information_schema.innodb_trx;
-
 select * from information_schema.innodb_locks;
-
 select * from information_schema.INNODB_lock_waits;
+-- mysql 8.0之后查看锁、等待的信息
+select * from `performance_schema`.data_locks;
+select * from `performance_schema`.data_lock_waits;
+
+
+SELECT
+  r.trx_id waiting_trx_id,
+  r.trx_mysql_thread_id waiting_thread,
+  r.trx_query waiting_query,
+  b.trx_id blocking_trx_id,
+  b.trx_mysql_thread_id blocking_thread,
+  b.trx_query blocking_query
+FROM performance_schema.data_lock_waits w
+INNER JOIN information_schema.innodb_trx b ON b.trx_id = w.blocking_engine_transaction_id
+INNER JOIN information_schema.innodb_trx r ON r.trx_id = w.requesting_engine_transaction_id;
+
+-- 定位一个阻塞的会话，是被哪些sql阻塞了
+-- 查询
+select waiting_pid from sys.innodb_lock_waits;
+-- 查询阻塞的thread_id
+select * from `performance_schema`.threads where processlist_id = 10;
+-- 查询这个线程当前执行的sql
+SELECT THREAD_ID, SQL_TEXT FROM performance_schema.events_statements_current WHERE THREAD_ID = 52;
+-- 查询这个线程曾经执行的sql
+SELECT THREAD_ID, SQL_TEXT FROM performance_schema.events_statements_history WHERE THREAD_ID = 52 ORDER BY EVENT_ID;
+
 
 -- 超时等待时间
 show variables like '%innodb_lock_wait_timeout%';
+-- 是否在超时的时候对事务进行回滚
+show variables like '%innodb_rollback_on_timeout%';
+
+
+set @@GLOBAL.innodb_lock_wait_timeout = 5
 
 show engine innodb status;
 
@@ -206,6 +235,9 @@ create table t (
 	a int primary key
 );
 select * from t;
+insert into t select 1;
+insert into t select 2;
+insert into t select 4;
 
 drop table z;
 create table z (
@@ -225,134 +257,6 @@ insert into z select 3, 3, '3', '3';
 delete from z;
 
 
-=====================================
-2020-08-05 13:33:08 0xae4 INNODB MONITOR OUTPUT
-=====================================
-Per second averages calculated from the last 20 seconds
------------------
-BACKGROUND THREAD
------------------
-srv_master_thread loops: 9 srv_active, 0 srv_shutdown, 79458 srv_idle
-srv_master_thread log flush and writes: 0
-----------
-SEMAPHORES
-----------
-OS WAIT ARRAY INFO: reservation count 44
-OS WAIT ARRAY INFO: signal count 43
-RW-shared spins 0, rounds 0, OS waits 0
-RW-excl spins 0, rounds 0, OS waits 0
-RW-sx spins 0, rounds 0, OS waits 0
-Spin rounds per wait: 0.00 RW-shared, 0.00 RW-excl, 0.00 RW-sx
-------------
-TRANSACTIONS
-------------
-Trx id counter 4676
-Purge done for trx's n:o < 4672 undo n:o < 0 state: running but idle
-History list length 0
-LIST OF TRANSACTIONS FOR EACH SESSION:
----TRANSACTION 283642581191264, not started
-0 lock struct(s), heap size 1136, 0 row lock(s)
----TRANSACTION 283642581190432, not started
-0 lock struct(s), heap size 1136, 0 row lock(s)
----TRANSACTION 283642581189600, not started
-0 lock struct(s), heap size 1136, 0 row lock(s)
----TRANSACTION 283642581187104, not started
-0 lock struct(s), heap size 1136, 0 row lock(s)
----TRANSACTION 283642581186272, not started
-0 lock struct(s), heap size 1136, 0 row lock(s)
----TRANSACTION 4674, ACTIVE 5961 sec
-1 lock struct(s), heap size 1136, 1 row lock(s)
-MySQL thread id 11, OS thread handle 6416, query id 257 localhost ::1 root
---------
-FILE I/O
---------
-I/O thread 0 state: wait Windows aio (insert buffer thread)
-I/O thread 1 state: wait Windows aio (log thread)
-I/O thread 2 state: wait Windows aio (read thread)
-I/O thread 3 state: wait Windows aio (read thread)
-I/O thread 4 state: wait Windows aio (read thread)
-I/O thread 5 state: wait Windows aio (read thread)
-I/O thread 6 state: wait Windows aio (write thread)
-I/O thread 7 state: wait Windows aio (write thread)
-I/O thread 8 state: wait Windows aio (write thread)
-I/O thread 9 state: wait Windows aio (write thread)
-Pending normal aio reads: [0, 0, 0, 0] , aio writes: [0, 0, 0, 0] ,
- ibuf aio reads:, log i/o's:, sync i/o's:
-Pending flushes (fsync) log: 0; buffer pool: 0
-2350 OS file reads, 489 OS file writes, 172 OS fsyncs
-0.00 reads/s, 0 avg bytes/read, 0.00 writes/s, 0.00 fsyncs/s
--------------------------------------
-INSERT BUFFER AND ADAPTIVE HASH INDEX
--------------------------------------
-Ibuf: size 1, free list len 0, seg size 2, 0 merges
-merged operations:
- insert 0, delete mark 0, delete 0
-discarded operations:
- insert 0, delete mark 0, delete 0
-Hash table size 34679, node heap has 0 buffer(s)
-Hash table size 34679, node heap has 1 buffer(s)
-Hash table size 34679, node heap has 0 buffer(s)
-Hash table size 34679, node heap has 0 buffer(s)
-Hash table size 34679, node heap has 1 buffer(s)
-Hash table size 34679, node heap has 0 buffer(s)
-Hash table size 34679, node heap has 1 buffer(s)
-Hash table size 34679, node heap has 4 buffer(s)
-0.00 hash searches/s, 0.00 non-hash searches/s
----
-LOG
----
-Log sequence number          544548834
-Log buffer assigned up to    544548834
-Log buffer completed up to   544548834
-Log written up to            544548834
-Log flushed up to            544548834
-Added dirty pages up to      544548834
-Pages flushed up to          544548834
-Last checkpoint at           544548834
-104 log i/o's done, 0.00 log i/o's/second
-----------------------
-BUFFER POOL AND MEMORY
-----------------------
-Total large memory allocated 137363456
-Dictionary memory allocated 453630
-Buffer pool size   8192
-Free buffers       5831
-Database pages     2346
-Old database pages 886
-Modified db pages  0
-Pending reads      0
-Pending writes: LRU 0, flush list 0, single page 0
-Pages made young 0, not young 0
-0.00 youngs/s, 0.00 non-youngs/s
-Pages read 2194, created 152, written 299
-0.00 reads/s, 0.00 creates/s, 0.00 writes/s
-No buffer pool page gets since the last printout
-Pages read ahead 0.00/s, evicted without access 0.00/s, Random read ahead 0.00/s
-LRU len: 2346, unzip_LRU len: 0
-I/O sum[0]:cur[0], unzip sum[0]:cur[0]
---------------
-ROW OPERATIONS
---------------
-0 queries inside InnoDB, 0 queries in queue
-0 read views open inside InnoDB
-Process ID=3740, Main thread ID=00000000000017E4 , state=sleeping
-Number of rows inserted 0, updated 0, deleted 0, read 1800144
-0.00 inserts/s, 0.00 updates/s, 0.00 deletes/s, 0.00 reads/s
-Number of system rows inserted 1, updated 342, deleted 0, read 6862
-0.00 inserts/s, 0.00 updates/s, 0.00 deletes/s, 0.00 reads/s
-----------------------------
-END OF INNODB MONITOR OUTPUT
-============================
-
-
-
-
-
-
-
-
-
-
 create table z(
 	a int primary key,
 	b int,
@@ -363,7 +267,6 @@ create table z(
 insert into z select 1, 1, 1;
 insert into z select 2, 2, 2;
 insert into z select 3, 3, 3;
-
 
 
 
@@ -400,7 +303,7 @@ call p_load(1000);
 	插入1000条数据
 	innodb_flush_log_at_trx_commit值  机械硬盘	固态硬盘
 -- 0: 37.784s  34.903s
--- 1: 64.993s	 58.491s
+-- 1: 64.993s  58.491s
 -- 2: 33.384s  27.192s
 */
 
@@ -411,23 +314,118 @@ truncate table tast_load;
 select count(*) from tast_load;
 show variables like '%innodb_flush_log_at_trx_commit%';
 
+start TRANSACTION;
+
+select * from employees_test;
+
+start TRANSACTION;
+update employees_test set last_name = 'bb';
+ROLLBACK;
+commit;
+select * from tast_load;
+
+
+select * from information_schema.innodb_trx_rollback_segment;
 
 
 
+-- 每次purge操作时，清理undo page的数量
+show variables like '%innodb_purge_batch_size%';
+-- 用来控制history list的长度，0表示不做限制。当history list的长度大于innodb_max_purge_lag时，会延缓dml操作。
+-- History list表示事务提交的顺序组织undo log，先提交的事务在尾端。
+-- 延缓算法： delay = (length(history_list) - innodb_max_purge_lag) * 10 - 5。 
+-- 如果一条dml操作更新了5条数据，则延缓时间 = delay * 5
+show variables like '%innodb_max_purge_lag%';
+-- 最大延迟时间，上面步骤计算出来的delay如果超过该值，则取该值
+show variables like '%innodb_max_purge_lag_delay%';
+-- flush阶段等待的时间
+show variables like '%binlog_max_flush_queue_time%';
+show variables like '%binlog%';
 
 
 
+-- tps计算： (com_commit + com_rollback) / time
+-- 事务提交次数
+show global status like 'com_commit';
+-- 事务回滚次数
+show global status like 'com_rollback';
+-- 
+show global status like 'handler_commit';
+--
+show global status like 'handler_rollback';
+
+-- 数据库的隔离级别
+show variables like '%transaction_isolation%';
 
 
 
+xa start 'b';
+insert into t select 3;
+xa end 'b';
+xa prepare 'b';
+xa RECOVER;
+xa commit 'b';
+xa ROLLBACK 'b';
+
+select * from t;
 
 
+show index from salaries
+
+-- 重新计算表的cardinalitiy
+analyze table t;
+
+select @@version;
+-- 创建和删除索引的默认算法，off: inplace算法、on：copy算法（使用临时表）
+show variables like '%old_alter_table%';
+-- 索引在创建过程中，执行的dml操作会放入一个缓存，缓存的大小由该值决定。如果创建索引过程中加share锁，则不会发生写操作
+show variables like '%innodb_online_alter_log_max_size%';
+
+-- mysql8之前的参数，统计cardinality值时，每次采样页的数量
+show variables like '%innodb_stats_sample_pages%';
+-- 如何对待索引中出现null值记录。nulls_equal：将null值记录视为相等的记录、nulls_unequal：将null值记录视为不通的记录、nulls_ignored：忽略null值记录。
+show variables like '%innodb_stats_method%';
+
+-- 是否将analyze table命令计算的cardiality存放到磁盘上。
+show variables like '%innodb_stats_persistent%';
+-- 在执行show table status、show index及访问infomation_schema架构下的表的tables和statistic时，是否重新计算索引的cardinality的值
+show variables like '%innodb_stats_on_metadata%';
+-- innodb_stats_persistent为on时，执行analyze table采样页的数量
+show variables like '%innodb_stats_persistent_sample_pages%';
+-- 采样页的数量，用于取代innodb_stats_sample_pages
+show variables like '%innodb_stats_transient_sample_pages%';
 
 
+set @@global.innodb_stats_persistent = off;
+
+------------------------------------------------------------------------------------------------
+
+--
+show variables like '%optimizer_switch%';
+-- mrr为on，表示启用multi-Range read。mrr_cost_based表示是否通过cost based的方式启用mrr优化。
+-- 如果mrr=on,mrr_cost_based=off，则表示一直启用mrr优化
+set @@optimizer_switch = 'mrr=on,mrr_cost_based=off';
+-- 启用mrr时的缓冲区大小，当大于该值时，则执行器对已经缓存的数据根据rowId排序，并通过rowId来取得行数据。
+show variables like '%read_rnd_buffer_size%';
 
 
+set @@optimizer_switch = 'mrr=on,mrr_cost_based=off';
 
+-- 下面语句在启用mrr，和没有启用mrr的性能对比
+-- off 21.298
+-- on  0.793
+explain select * from salaries where salary > 10000 and salary < 40000;
 
+-- explain extra 值说明：
+-- Using MRR 启用multi-Range read优化 
+-- Using index condition： 使用了index condition pushdown优化，将索引的过滤条件从服务层下推到存储引擎层
+-- Using where:
+-- Using index: 使用覆盖索引
+-- Using filesort： 需要使用额外的一次排序
+-- Using temporary 表示MySQL需要使用临时表来存储结果集，常见于排序和分组查询，常见 group by ; order by
+-- 
+
+-- index_merge=on,index_merge_union=on,index_merge_sort_union=on,index_merge_intersection=on,engine_condition_pushdown=on,index_condition_pushdown=on,mrr=on,mrr_cost_based=off,block_nested_loop=on,batched_key_access=off,materialization=on,semijoin=on,loosescan=on,firstmatch=on,duplicateweedout=on,subquery_materialization_cost_based=on,use_index_extensions=on,condition_fanout_filter=on,derived_merge=on,use_invisible_indexes=off,skip_scan=on,hash_join=on,subquery_to_derived=off,prefer_ordering_index=on
 
 
 
