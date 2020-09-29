@@ -5,7 +5,7 @@ Status:
 =====================================
 2020-08-13 15:59:38 0x758 INNODB MONITOR OUTPUT
 =====================================
-Per second averages calculated from the last 50 seconds
+Per second averages calculated from the last 50 seconds // 下面的统计数据来源于过去50s的时间
 -----------------
 BACKGROUND THREAD
 -----------------
@@ -46,21 +46,22 @@ update employees_test set last_name = 'bb'
 --------
 FILE I/O
 --------
-I/O thread 0 state: wait Windows aio (insert buffer thread)
-I/O thread 1 state: wait Windows aio (log thread)
-I/O thread 2 state: wait Windows aio (read thread)
+I/O thread 0 state: wait Windows aio (insert buffer thread)	// 用于将insert buffer中的数据刷到磁盘的线程
+I/O thread 1 state: wait Windows aio (log thread)			// 用于将redo log中的数据刷到磁盘的线程
+I/O thread 2 state: wait Windows aio (read thread)	
 I/O thread 3 state: wait Windows aio (read thread)
 I/O thread 4 state: wait Windows aio (read thread)
-I/O thread 5 state: wait Windows aio (read thread)
+I/O thread 5 state: wait Windows aio (read thread)			// 读线程
 I/O thread 6 state: wait Windows aio (write thread)
 I/O thread 7 state: wait Windows aio (write thread)
 I/O thread 8 state: wait Windows aio (write thread)
-I/O thread 9 state: wait Windows aio (write thread)
+I/O thread 9 state: wait Windows aio (write thread)			// 写线程
 Pending normal aio reads: [0, 0, 0, 0] , aio writes: [0, 0, 0, 0] ,
  ibuf aio reads:, log i/o's:, sync i/o's:
 Pending flushes (fsync) log: 0; buffer pool: 0
-1474 OS file reads, 3360 OS file writes, 519 OS fsyncs
-0.00 reads/s, 0 avg bytes/read, 0.00 writes/s, 0.00 fsyncs/s
+2517 OS file reads, 243 OS file writes, 46 OS fsyncs
+17.37 reads/s, 16367 avg bytes/read, 0.07 writes/s, 0.04 fsyncs/s
+
 -------------------------------------
 INSERT BUFFER AND ADAPTIVE HASH INDEX
 -------------------------------------
@@ -95,21 +96,21 @@ Last checkpoint at           545369759		// 表示刷到磁盘的lsn
 BUFFER POOL AND MEMORY
 ----------------------
 Total large memory allocated 137363456
-Dictionary memory allocated 418151
-Buffer pool size   8192
-Free buffers       6509
-Database pages     1677
-Old database pages 599
-Modified db pages  0
+Dictionary memory allocated 430688
+Buffer pool size   8192			// bool buffer的总页数，每页默认16KB
+Free buffers       5585			// 空闲的buffer
+Database pages     2596			// LRU列表中页的数量，可能出现[Database pages] + [Free buffers] != [Buffer pool size]，因为bool buffer中的内存还会分配给自适应hash索引、lock信息、insert buffer、数据字典
+Old database pages 978			// LRU中old部分的长度
+Modified db pages  0			// 脏页的数量
 Pending reads      0
 Pending writes: LRU 0, flush list 0, single page 0
-Pages made young 0, not young 0
-0.00 youngs/s, 0.00 non-youngs/s
-Pages read 1315, created 362, written 844
+Pages made young 0, not young 0			// 也从old到new LRU的数量，由于innodb_old_blocks_time的设置，导致页没有从old到new的数量
+0.00 youngs/s, 0.00 non-youngs/s		// 速度
+Pages read 2454, created 142, written 165
 0.00 reads/s, 0.00 creates/s, 0.00 writes/s
-No buffer pool page gets since the last printout
+Buffer pool hit rate 977 / 1000, young-making rate 0 / 1000 not 0 / 1000		// 命中率，该值不应该小于95%，如果小于了应该观察是否有全表扫描引起LRU被污染的问题
 Pages read ahead 0.00/s, evicted without access 0.00/s, Random read ahead 0.00/s
-LRU len: 1677, unzip_LRU len: 0
+LRU len: 2596, unzip_LRU len: 0					// LRU len：LRU的长度，unzip_LRU：压缩表的LRU的长度，注意LRU len包含了unzip_LRU，unzip LRU采用伙伴算法分配
 I/O sum[0]:cur[0], unzip sum[0]:cur[0]
 --------------
 ROW OPERATIONS
