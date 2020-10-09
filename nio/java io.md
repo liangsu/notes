@@ -158,7 +158,55 @@ netty接收到io请求之后，相关的业务处理方式：
 6. 多个selector模型中，怎么解决有些selector忙碌，有些selector空闲的问题？
 
 	
+7. 背景：只要send-Queue为空，则会触发wirte事件。
+	在多线程中处理read、write事件时，当select之后有read事件时，需要先注销read事件，开启线程去处理，不然会反复的开启read线程。
+	当向一个selector注册了一个channel的read、在响应客户端的时候需要注册write事件，写完了之后又要注销write事件，涉及到了反复的系统的调用，会导致系统性能低下。
 	
+	单线程的情况下：处理了read事件之后需要返回客户端请求，然后注册write事件，write事件触发了之后也需要注销write事件，也不能解决反复的系统调用。
+	
+	
+	
+单线程版本：
+keys = select();
+while(key : keys){
+	if(read){
+		data = read();
+		register(write); // 注册write事件
+		
+	}else if(write){
+		
+		// write数据...
+		// 注销write事件
+	
+	}
+}
+
+多线程版本：
+keys = select();
+while(key : keys){
+	if(read){
+	
+		注销read事件
+		new Thread({
+			data = read();
+			register(write); // 注册write事件
+		}).start();
+		
+		
+	}else if(write){
+		
+		注销write事件
+		new Thread({
+			// write数据...
+			// 注销write事件
+		}).start();
+		
+	}
+}
+
+多线程版本相比较单线程版本，多了read事件的反复注册、注销，增加了系统调用，但是write事件的注册、注销并没有减少
+
+
 
 
 tcpdump -i enp6s0 host 192.168.10.34
@@ -167,6 +215,7 @@ tcpdump -nn -i enp6s0 port 9090
 
 
 
+验证：read比较块，wirte比较慢，导致一直write丢失的问题
 
 
 
@@ -175,5 +224,4 @@ tcpdump -nn -i enp6s0 port 9090
 
 
 
-
-
+1:47
