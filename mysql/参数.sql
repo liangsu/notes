@@ -428,6 +428,46 @@ explain select * from salaries where salary > 10000 and salary < 40000;
 -- index_merge=on,index_merge_union=on,index_merge_sort_union=on,index_merge_intersection=on,engine_condition_pushdown=on,index_condition_pushdown=on,mrr=on,mrr_cost_based=off,block_nested_loop=on,batched_key_access=off,materialization=on,semijoin=on,loosescan=on,firstmatch=on,duplicateweedout=on,subquery_materialization_cost_based=on,use_index_extensions=on,condition_fanout_filter=on,derived_merge=on,use_invisible_indexes=off,skip_scan=on,hash_join=on,subquery_to_derived=off,prefer_ordering_index=on
 
 
+------------------------------------------------------------------------------------------------
+show variables like '%optimizer_trace%';
+-- 开启
+set @@session.optimizer_trace="enabled=on,one_line=on"; 
+SET PROFILING = 1
+-- 执行sql
+-- 查看日志信息
+select * from information_schema.OPTIMIZER_TRACE;
+-- 关闭
+set optimizer_trace="enabled=off";
+
+explain
+select * from salaries where salary > 10000 and salary < 40000;
+
+
+set optimizer_trace="enabled=on"; 
+set optimizer_trace_limit = 10;
+set @@session.optimizer_trace="enabled=on,one_line=on"; 
+
+select * from information_schema.OPTIMIZER_TRACE;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

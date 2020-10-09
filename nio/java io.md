@@ -99,8 +99,42 @@ select、poll的弊端：
 epoll_create -> fd
 epoll_ctl
 epoll_wait
+fcntl 设置非阻塞
 
 
+CLOSED
+close_wait
+fin_wait2
+在TIME_WAIT没有结束之前，内核中的四元组被占用，相同的对端不能使用这个资源建立新的连接。浪费了名额
+
+
+net.ipv4.tcp_tw_reuse=0
+
+
+
+1. bytebuf
+2. eventLoopGroup
+3. 
+
+
+
+rpc:
+1. 通信、连接数量、拆包
+2. 动态代理、序列化、协议封装
+3. 连接池
+5. 
+
+
+io thread：
+task thread：
+
+netty接收到io请求之后，相关的业务处理方式：
+	* 在io thread中处理
+	* 创建任务，在业务线程中处理
+	* 将业务任务打散到各个io thread上
+
+
+结合redis的线程模型看看
 
 
 
@@ -121,7 +155,8 @@ epoll_wait
 	
 5. 调用select之后，在内核级别的遍历为什么会比较慢？和epoll相比能慢多少？
 
-	
+6. 多个selector模型中，怎么解决有些selector忙碌，有些selector空闲的问题？
+
 	
 	
 
