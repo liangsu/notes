@@ -129,7 +129,7 @@ epoll_wait
 	单线程的情况下：处理了read事件之后需要返回客户端请求，然后注册write事件，write事件触发了之后也需要注销write事件，也不能解决反复的系统调用。
 	
 	
-	
+```
 单线程版本：
 keys = select();
 while(key : keys){
@@ -167,8 +167,14 @@ while(key : keys){
 		
 	}
 }
+```
+结论：多线程版本相比较单线程版本，多了read事件的反复注册、注销，增加了系统调用，但是write事件的注册、注销并没有减少
 
-多线程版本相比较单线程版本，多了read事件的反复注册、注销，增加了系统调用，但是write事件的注册、注销并没有减少
+
+
+7. 验证：在单线程中，read比较块，wirte比较慢，导致一直write丢失的问题
+	答：问题没复现
+
 
 
 
@@ -177,15 +183,42 @@ tcpdump -i enp6s0 host 192.168.10.34
 
 tcpdump -nn -i enp6s0 port 9090
 
-
-
-验证：read比较块，wirte比较慢，导致一直write丢失的问题
-
-
-
-
-
-
-
-
 1:47
+
+
+
+
+cocos
+unreal
+unity
+
+
+
+HttpServerCodec
+HttpObjectAggregator
+WebSocketServerProtocalHandler
+simple
+
+
+
+国标28181协议 16版本
+
+
+
+
+
+http://cdn0001.afrxvk.cn/hero_story/demo/step010/index.html?serverAddr=127.0.0.1:12345&userId=1
+
+
+protobuf
+
+
+
+
+
+
+
+
+
+
+
