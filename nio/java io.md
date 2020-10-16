@@ -186,7 +186,9 @@ keys = select();
 while(key : keys){
 	if(read){
 	
-		注销read事件
+		// 注销read事件
+		unregister(read);
+		
 		new Thread({
 			data = read();
 			register(write); // 注册write事件
@@ -195,7 +197,9 @@ while(key : keys){
 		
 	}else if(write){
 		
-		注销write事件
+		// 注销write事件
+		unregister(write);
+		
 		new Thread({
 			// write数据...
 			// 注销write事件
@@ -224,6 +228,8 @@ tcpdump -nn -i enp6s0 port 9090
 
 
 
+## 游戏
+
 cocos
 unreal
 unity
@@ -239,14 +245,270 @@ simple
 
 国标28181协议 16版本
 
-
-
+一线架构师实践指南
 
 
 http://cdn0001.afrxvk.cn/hero_story/demo/step010/index.html?serverAddr=127.0.0.1:12345&userId=1
-
+http://cdn0001.afrxvk.cn/hero_story/demo/step020/index.html?serverAddr=127.0.0.1:12345&userId=1
+-- 增加登陆、英雄选择
+http://cdn0001.afrxvk.cn/hero_story/demo/step030/index.html?serverAddr=127.0.0.1:12345&userId=1
+-- 增加排行榜
+http://cdn0001.afrxvk.cn/hero_story/demo/step040/index.html?serverAddr=127.0.0.1:12345
 
 protobuf
+
+
+
+
+帧同步、状态同步
+
+
+
+单线程模型： 完全可以eventLoopGroup采用一个线程就可以了？
+
+
+数据库查询：异步查询，回调处理主业务方法
+
+问题：
+
+1. 用户血量的减少导致死锁：用户1攻击用户2，同时用户2攻击用户1，导致死锁
+	答：业务的处理放入单线程中处理（主业务线程）
+
+2. 在主业务线程中处理，数据库查询慢，导致阻塞其它请求的响应，
+   答：将数据的查询放入异步线程中处理，这个异步线程池可以是多个线程，查询完成之后，做回调，回到主线程中处理业务逻辑。
+
+3. 用户注册请求点击两次，导致发起了两次请求，在数据库插入的时候插入了多条相同记录
+   答：在异步处理的时候，将某个任务绑定到唯一的一个线程上处理
+		
+	多线程异步处理数据库操作中，根据bindId将相同id的任务绑定到一个固定的线程上，它采取的方式是将bindId%线程数量，这样有可能会导致：有些线程忙死，有写线程空闲，如何解决这个问题？
+	
+	https://oomake.com/question/2146378
+	
+	
+
+
+
+线程模型： 多线程（网络io处理） —— 单线程(主业务处理) —— 多线程(数据库查询)
+
+
+gps的进出电子围栏的判断： gps(id) -> exchange -> queue1(1), queue2(2)
+
+
+参考： https://www.thetopsites.net/article/52089566.shtml
+根据id将某个任务绑定到一个给定的线程
+
+版本1：
+```
+// 自定义的队列
+class OrderQueue{
+	BlockingQueue queue;
+	AtomicBoolean isAssociatedWithWorkingThread = false; // 是否关联了一个正在工作的线程
+}
+
+// 每个id，关联一个OrderQueue
+ConcurrentHashMap<ID, OrderQueue> map;
+// 分摊任务的队列
+BlockingQueue<OrderQueue> amortizationQueue; 
+
+// 每个线程对应一个工作队列，可以新建多个线程池，每个线程池的线程数量为1
+Thread[] threads ->  workQueue
+
+新增任务：
+OrderQueue queue = map.get(id);
+if(queue == null){
+	map.putIfAbsent(id, new OrderQueue(isAssociatedWithWorkingThread=false));
+	queue = map.get(id);
+}
+
+if(queue.isAssociatedWithWorkingThread == false){
+	amortizationQueue.add(OrderQueue);
+}
+
+线程的run方法：
+for(;;){
+	// 获取自己工作线程中的任务
+	OrderQueue orderQueue = this.workQueue.poll(waitingTime);
+	// 如果本线程的队列中没有任务，偷取其它线程的工作队列的任务，加入到自己的队列中
+	if(orderQueue == null){
+		// 偷取其它线程的工作队列的任务
+		int i = random();
+		orderQueue = threads[i].workQueue.tail(); // 从队列尾部偷取任务
+		if(orderQueue != null){
+			this.workQueue.add(orderQueue);
+			break;
+		}
+	}
+}
+
+// 执行任务
+while(!orderQueue.isEmpty()){
+	Task task = orderQueue.take();
+	task.run();
+}
+orderQueue.isAssociatedWithWorkingThread.compareAndSet(true, false);
+// 再次加入分摊队列，防止在这之间有有新任务添加
+amortizationQueue.add(orderQueue); 
+
+任务分配线程：
+for(;;){
+	OrderQueue orderQueue = amortizationQueue.poll();
+	if(!orderQueue.isEmpty 
+		&& orderQueue.isAssociatedWithWorkingThread.compareAndSet(false, true)){
+		Thread[i].workQueue.add(orderQueue);
+	}
+}
+```
+
+版本2：
+````
+ConcurrentHashMap<ID, TaskThread> map;
+
+ThreadPool threadPool;
+
+AddTask(Runnable run){
+	TaskThread taskThread = map.get(id);
+	if(taskThread == null){
+		map.putIfAbsent(id, new TaskThread());
+		taskThread = map.get(id);
+	}
+	
+	taskThread.queue.add(run);
+	
+	for(;;){
+		
+		if(taskThread.state == 0 && taskThread.state.cas(0, 1)){
+			threadPool.submit(taskThread);
+		}else if(taskThread.state == 1 && taskThread.state.cas(1, 2)){
+			
+		}else if(taskThread.state == 2 && taskThread.state.cas(2, 1)){
+		
+		}else if(taskThread.state == 3 && taskThread.state.cas(3, 4)){
+		
+		}else if(taskThread.state == 4 && taskThread.state.cas(4, 3)){
+		
+		}else if(taskThread.state == 5 && taskThread.state.cas(5, 0)){
+			map.putIfAbsent(id, taskThread);
+			threadPool.submit(taskThread);
+		}
+		
+		if(remove.cas(true, false)){
+			map.putIfAbsent(id, taskThread);
+			threadPool.submit(taskThread);
+		}
+		
+	}
+	
+}
+
+
+TaskThread extends Thread{
+	
+	Queue<Runnable> queue;
+	
+	// 0：未执行、1：添加任务中、2：执行中、3：执行完成
+	// 0：新建、1：线程池中、2：执行中、3：执行完成
+	// 0：新建、1：线程池中、2：向池中加任务、3：执行中、4：向执行中加任务、5：执行完成
+	AtomeInteger state = AtomeInteger(1);
+	
+	AtomeInteger remove = AtomeInteger(false);
+	
+	public void run(){
+		
+		
+		
+		for(;;){
+			if(remove.compareAndSet(false, true)){
+				map.remove(id);
+			}else{
+			
+				Runnable task = null;
+				while((task = queue.poll()) != null){
+					task.run();
+				}
+			}
+		}
+		
+	
+	}
+
+
+}
+
+````
+
+
+socket5协议
+websocket拆包
+
+极光、netty、sse
+
+推送：
+
+推送报表：每分钟推送了多少条消息
+用户统计报表
+
+用户{
+	id
+	标签
+	别名
+	地理位置
+	活跃用户
+	系统版本
+	智能标签
+	最近活跃时间
+}
+	
+标签{
+	用户、标签名称、标签值
+}
+
+消息{
+	标签名称
+	用户id
+	消息内容
+}
+
+消息的接收用户{
+	消息id
+	用户id
+	是否接收
+}
+
+
+IM：
+
+
+
+
+
+## 
+tomcat线程架构
+
+
+AbstractEndpoint
+Catalina
+
+Acceptor
+
+业务必须需要线程池
+
+
+
+
+ThreadPool线程池： 全局队列 + 线程
+
+ForkJoinPool线程池： 线程（待队列）
+	任务倒去
+
+EventExecutorGroup extends ScheduledExecutorService, Iterable<EventExecutor>
+
+EventExecutor extends EventExecutorGroup
+
+EventLoopGroup extends EventExecutorGroup
+
+EventLoopGroup extends EventExecutorGroup
+
+EventLoop extends OrderedEventExecutor, EventLoopGroup
 
 
 
