@@ -1,0 +1,75 @@
+
+
+采用器：xprof，hprof，jprofile和yourkit四种采样器
+
+
+https://github.com/jvm-profiling-tools/async-profiler
+https://github.com/brendangregg/FlameGraph
+
+
+
+https://github.com/zrbcool/blog-public
+
+采样数据
+
+
+
+
+docker cp /home/async-profiler-1.8.2-linux-x64.tar.gz bbab8906c003:/home
+
+docker cp bbab8906c003:/home/location.txt /home
+
+docker exec -it bbab8906c003 /bin/bash
+cd /home
+ll
+
+sh /home/async-profiler-1.8.2-linux-x64/profiler.sh -d 20 -o collapsed -f /home/location.txt 11 &
+./profiler.sh -d 180 -o collapsed -f /home/helmet.txt 11 &
+./profiler.sh -d 180 -o collapsed -f /home/fence.txt 11 &
+
+
+
+
+生成火焰图：
+perl C:\\Users\\Administrator\\Desktop\\trace\\FlameGraph-master\\flamegraph.pl --colors=java C:\\Users\\Administrator\\Desktop\\trace\\trace_1475.txt > C:\\Users\\Administrator\\Desktop\\trace\\test.svg
+
+
+
+
+java -XX:+PreserveFramePointer Hello
+
+
+docker ps | grep xxx
+docker inspect --format '{{.State.Pid}}' [CONTAINER_ID]
+
+
+
+定位
+docker exec -it 1daeb21f1452 /bin/bash
+jps 
+
+cd /home/docker-flame-graphs
+docker cp $(pwd) 1daeb21f1452:/docker-flame-graphs
+sh /home/docker-flame-graphs/bin/docker-perf-top 1daeb21f1452 11
+
+
+./docker-perf-java-flames 1daeb21f1452 11
+
+
+docker inspect --format '{{.State.Pid}}' 1daeb21f1452
+
+
+sh /home/docker-flame-graphs/bin/docker-perf-top 163f6c316fc6 11
+
+
+
+
+
+
+
+
+
+grep "ready push message" | grep "管理063"
+
+tail -f /data/hm-compose/volume/helmetserver/logs/server.log.2020-11-04.*.log | grep "ready push message" | grep "管理063"
+tail -f server.log.2020-11-04.*.log | grep "ready push message" | grep "管理063"
