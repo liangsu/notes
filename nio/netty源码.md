@@ -515,6 +515,11 @@ rpc框架doubbo、Redisson
 5. WriteBufferWaterMark是做什么用的？
 	答： 
 
+6. 将io线程与业务线程分开的好处是什么，目的是什么？
+	答：	预防业务代码太慢阻塞io  导致io过多丢弃
+			充分利用cpu的并发性
+	
+
 
 缓存行对齐
 

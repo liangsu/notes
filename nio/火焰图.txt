@@ -49,11 +49,13 @@ docker exec -it 1daeb21f1452 /bin/bash
 jps 
 
 cd /home/docker-flame-graphs
-docker cp $(pwd) 1daeb21f1452:/docker-flame-graphs
-sh /home/docker-flame-graphs/bin/docker-perf-top 1daeb21f1452 11
+docker cp $(pwd) 682ef7317cfb:/docker-flame-graphs
+sh /home/docker-flame-graphs/bin/docker-perf-top 682ef7317cfb 11
 
+sh /home/docker-flame-graphs/bin/docker-perf-java-flames 682ef7317cfb 11
+ 
 
-./docker-perf-java-flames 1daeb21f1452 11
+./docker-perf-java-flames 682ef7317cfb 11
 
 
 docker inspect --format '{{.State.Pid}}' 1daeb21f1452
@@ -64,8 +66,16 @@ sh /home/docker-flame-graphs/bin/docker-perf-top 163f6c316fc6 11
 
 
 
+tail -f /home/test/volume/helmetserver/logs/server.log.2020-11-10.*.log | grep "updateHelmetLastLocationAndLimitOnlineIfNecessary cost time|pushGpsThenUpdateHelmetLastGps" -E
 
 
+tail -f /home/test/volume/locationserver/logs/server.log.2020-11-10.*.log | grep "complete consumer gps location"
+
+tail -f /home/test/volume/locationserver/logs/server.log.2020-11-10.*.log | grep "complete consumer gps location"
+
+
+180
+60
 
 
 
@@ -73,3 +83,12 @@ grep "ready push message" | grep "管理063"
 
 tail -f /data/hm-compose/volume/helmetserver/logs/server.log.2020-11-04.*.log | grep "ready push message" | grep "管理063"
 tail -f server.log.2020-11-04.*.log | grep "ready push message" | grep "管理063"
+
+
+
+
+
+
+
+
+
