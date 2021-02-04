@@ -82,12 +82,12 @@ Dockerfile:
 ```
 FROM mysql:5.7.22
 
+## 将宿主机的文件复制到容器内，如果是一个压缩文件，在复制后自动解压
 ADD *.sql /home/
 ADD *.sh /home/
 ADD mysql.cnf /etc/mysql/conf.d/
 RUN chmod +x /home/init.sh
 ```
-
 
 
 

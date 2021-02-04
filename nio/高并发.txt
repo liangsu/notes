@@ -1,0 +1,178 @@
+
+高并发： 
+	数据一致性：
+		高
+		低
+		
+
+
+
+
+
+
+
+国美、美团 最高qps 5k
+瓜子： qps 2K 
+
+
+
+单tomcat 200
+
+
+## nginx 
+
+官方宣称：5W并发
+
+nginx + lua 跑简单业务
+
+
+openrestry： 扩展了nginx，支持lua，以及扩展了一些lua的包
+
+	应用场景：
+		网关api 路由转发
+		waf软防火墙
+		单点登陆
+		验证码
+		整合缓存系统
+		输出动态页面
+		直接输出json
+		redis、kafka
+				
+	异地备份
+	异地多活
+	
+	nginx内部缓存
+	lrucache
+	http_proxy_cache
+	
+	
+	适用：
+		1. css、js、img等html骨架中包含的静态文件
+		2. app内需要的img、html静态文件
+		3. 期望-网络爬虫
+		4. 音视频点播资源
+		5. 大文件下载
+		
+	不适用：
+		1. 私密的商业数据
+			* 企业交易票据
+			* 资产类、知识产权（图库）
+			* 用户个人静态数据
+		2. 包含有逻辑的请求
+		3. 需要鉴权
+		4. 长连接
+		5. reator模型
+		6. 即时通信
+		
+
+
+lua windows下载地址：	https://joedf.ahkscript.org/LuaBuilds/
+
+
+	lua-resty-redis
+
+	lua-resty-http
+		nginx url 一致性hash
+
+
+redis-cli -h 192.168.10.241 -p 18040 eval "return 1+1" 0
+
+redis-cli -h 192.168.10.241 -p 18040 eval "local msg='hello ' return msg..ARGV[1]" 1 a xiaoming
+
+redis-cli -h 192.168.10.241 -p 18040 eval "local msg='hello ' return msg..KEYS[1]" 1 xiaoming
+
+redis-cli -h 192.168.10.241 -p 18040 --eval a.txt 0
+
+
+
+
+浪费带宽
+
+
+
+
+## LB
+
+* 硬件
+* haproxy
+* lvs
+* nginx
+	* 负载均衡策略
+		* ip hash
+
+
+	
+
+
+## session共享：
+	
+1. tomcat同步
+	* 
+	
+2. 第三方存储session
+	* 
+
+
+
+tempfs
+
+
+## http缓存
+
+响应 -> 请求
+etag -> If-None-Match： 根据内容生成一个标记，在请求的是否将etag的值赋值If-None-Match传递到后台，后台根据请求的内容生成etag，校验etag的值与之前的是否一致，一致则只返回304(Not Modified)状态，不返回内容，不一致则200及其内容
+
+Last-Modified -> If-Modified-Since：后端判断最新更新时间是否一致，不一致
+
+cache-control: max-age=20
+
+Expires: 指定内容在什么时间过期，浏览器判断是否需要向后台请求
+
+age: cdn下发的，指在cdn上存在了多长
+
+via: 在集群环境下，表明请求经过了哪些服务器
+
+Date: 响应服务器时间
+
+
+## 日志
+
+
+## 资源隔离
+
+线程隔离
+
+
+
+## 限流
+
+
+漏通算法：
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
