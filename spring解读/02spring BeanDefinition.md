@@ -159,6 +159,7 @@ public void refresh() throws BeansException, IllegalStateException {
 			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
 			// Prepare the bean factory for use in this context.
+			// 准备一些初始类：ApplicationContextAwareProcessor
 			prepareBeanFactory(beanFactory);
 
 			try {
@@ -167,22 +168,33 @@ public void refresh() throws BeansException, IllegalStateException {
 
 				// Invoke factory processors registered as beans in the context.
 				// 扫描class为BeanDefinition，并调用BeanFactoryPostProcessor
-                // 首先调用spring内置的BeanDefinitionRegistryPostProcessor，扫描		BeanDefinition，然后再调用其它的BeanFactoryPostProcessor
+                // 首先调用spring内置的BeanDefinitionRegistryPostProcessor，扫描BeanDefinition，然后再调用其它的BeanFactoryPostProcessor
+				// 1. 执行PriorityOrdered的BeanDefinitionRegistryPostProcessor
+				// 2. 再执行Ordered的BeanDefinitionRegistryPostProcessor
+				// 3. 然后执行没有顺序的BeanDefinitionRegistryPostProcessor
+				// 4. 最后递归执行前面扫描出来的BeanDefinitionRegistryPostProcessor
+				// 5. 调用BeanDefinitionRegistryPostProcessor的父接口BeanFactoryPostProcessor的方法
+				// 6. 按PriorityOrdered、Ordered、无顺序，执行BeanFactoryPostProcessor，跳过前面步骤执行过的BeanDefinitionRegistryPostProcessor
 				invokeBeanFactoryPostProcessors(beanFactory);
 
 				// Register bean processors that intercept bean creation.
+				// 实例化bpp，并向beanFactory注册bpp
 				registerBeanPostProcessors(beanFactory);
 
 				// Initialize message source for this context.
+				// 初始化消息
 				initMessageSource();
 
 				// Initialize event multicaster for this context.
+				// 初始化广播器
 				initApplicationEventMulticaster();
 
 				// Initialize other special beans in specific context subclasses.
+				// 在特定的context中初始化相关的bean，如在ServletWebServerApplicationContext中创建tomcat服务
 				onRefresh();
 
 				// Check for listener beans and register them.
+				// 注册监听器
 				registerListeners();
 
 				// Instantiate all remaining (non-lazy-init) singletons.
@@ -190,6 +202,7 @@ public void refresh() throws BeansException, IllegalStateException {
 				finishBeanFactoryInitialization(beanFactory);
 
 				// Last step: publish corresponding event.
+				// spring容器的生命周期回调，如调用LifecycleProcessor.onRefresh
 				finishRefresh();
 			}
 

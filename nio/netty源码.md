@@ -38,7 +38,7 @@ NioEventLoop implements EventLoop, Executor, EventExecutor{
 	private volatile EventLoop eventLoop;
 	
 	// 多路复用器Selector，netty使用的是重写类`SelectedSelectionKeySetSelector`,
-	// 这个类中的属性selectedKeys就是下面的引用，其作用应该是为了方便便利吧
+	// 这个类中的属性selectedKeys就是下面的引用，其作用应该是为了方便遍历吧
 	private Selector selector;
 	private Selector unwrappedSelector;
 	private SelectedSelectionKeySet selectedKeys;
@@ -517,7 +517,7 @@ rpc框架doubbo、Redisson
 
 6. 将io线程与业务线程分开的好处是什么，目的是什么？
 	答：	预防业务代码太慢阻塞io  导致io过多丢弃
-			充分利用cpu的并发性
+			充分利用cpu的并发性，从网络io读取数据并不消耗cpu，只是拆包、粘包的时候消耗cpu，让io读取与业务数据并发执行
 	
 
 
