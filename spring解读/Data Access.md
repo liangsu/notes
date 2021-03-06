@@ -8,7 +8,7 @@
 
 全面的事务支持是使用Spring框架的最引人注目的原因之一。Spring框架为事务管理提供了一致的抽象，它提供了以下好处：
 
-* 为跨不同的事务api提供了一致的编程模型，如java事务接口（JTA）、JDBC、Hibernate和Java Persistence API (JPA)
+* 为跨不同的事务api提供了一致的编程模型，如java事务接口（JTA）、JDBC、Hibernate和Java Persistence API (JPA) 
 * 支持声明式事务管理
 * 比复杂的事务管理（如JTA）更简单的编程式事务管理
 * 与Spring的数据访问抽象的天然集成
