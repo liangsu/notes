@@ -1,0 +1,68 @@
+# 下载器
+
+需求：
+1. 每次最多执行几个任务的下载工作，但是每个任务可以有多个线程下载，如m3u8
+2. 限速下载
+
+submit(task){
+	
+	if(runningTask < 4){
+		executor.submit(task);
+	}else{
+		queue.offer(task);
+	}
+
+}
+
+taskComplete(task){
+	runningTask--
+	executor.submit(queue.pop());
+}
+
+
+
+---
+
+executor
+
+ThreadLimiter {
+	// key: 文件名称、 value：任务队列
+	Map<String, Queue> queueMap;
+	Map<String, Semphore> semphoreMap;
+	
+	add(key, queue){
+		queueMap.put(key, queue);
+		semphoreMap.put(key, new Semphore(10))
+		
+		while((task = queue.poll()) != null){
+			if(Semphore.tryAcquire()){
+				executor.submit(new ReleaseTask(task));
+			}else{
+				break;
+			}
+		}
+	}
+	
+	release(){
+		queue = getQueue(key);
+		executor.submit(new ReleaseTask(task));
+	}
+	
+	class ReleaseTask {
+		Semphore semphore;
+		Task task;
+		run(){
+			task.run();
+			
+			semphore.release();
+		}
+	}
+	
+}
+
+
+
+
+
+
+
