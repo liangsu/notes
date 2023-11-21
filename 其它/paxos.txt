@@ -1,0 +1,39 @@
+how to build a highly availability system using consensus
+
+
+
+https://hardcore.feishu.cn/docs/doccnucpEur2hvGGVRtFshRWx0D
+
+https://mrcroxx.github.io/posts/paper-reading/paxos-made-live/#3-%E6%9E%B6%E6%9E%84%E6%A6%82%E8%A6%81
+
+https://mrcroxx.github.io/posts/paper-reading/paxos-made-simple/#22-%E5%80%BC%E7%9A%84%E9%80%89%E5%8F%96
+
+https://zhuanlan.zhihu.com/p/45720365
+
+
+basic paxos
+	multi paxos
+	ZAB
+	raft
+	
+
+
+活锁问题
+	活锁问题中的，第二个提案的序号怎么保证全局自增的？
+	
+	
+	
+在第二阶段accept中，如果多数派返回失败了，怎么处理？
+
+初始状态选举leader流程？
+运行状态中leader挂了？
+运行状态中，某一个follow与leader的网络挂了？
+运行状态中，多数follow挂了？
+运行状态中，leader与多数follow的网络断开了？
+初始状态选举leader时，有2个参选者同时参选leader？
+
+	
+
+	
+	
+	

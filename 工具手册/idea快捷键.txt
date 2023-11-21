@@ -1,0 +1,5 @@
+功能		idea快捷键		eclipse快捷键
+搜索方法	ctrl + F12		ctrl + o
+
+1. idea 导入“*”设置
+设置 > Editor > Code Style > Java > Scheme Default > Imports
