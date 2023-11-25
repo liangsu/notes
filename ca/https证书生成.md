@@ -32,6 +32,22 @@
 # echo 1000 > serial
 ```
 
+使用AES 256位加密和强密码对根密钥进行加密
+```
+openssl genrsa -aes256 -out root/root.key.pem 4096
+```
+
+创建根证书
+```
+openssl req -config openssl.cnf \
+      -key root/root.key.pem \
+      -new -x509 -days 7300 -sha256 -extensions v3_ca \
+      -out root/root.cert.pem
+	  
+```	  
+
+
+
 
 
 ### 准备配置文件
@@ -57,6 +73,7 @@ openssl ca -config openssl.cnf \
   -out www.ls.com/server.crt
 ```
 
+openssl ca -config openssl.cnf  -extensions server_cert -days 375 -notext -md sha256  -in openvpn/server.csr -out openvpn/server.cert
 
 
 因为只有带SAN(Subject Alternative Name，中文：使用者可选名称)字段的证书，google浏览器才不会报连接不安全，如果需要生成的证书带SAN字段，需要在req段落增加下面配置:

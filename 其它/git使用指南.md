@@ -10,8 +10,8 @@ git config --global https.proxy https://127.0.0.1:1080
 git config --global --unset http.proxy
 git config --global --unset https.proxy
 npm config delete proxy
-git config --global http.proxy 'socks5://127.0.0.1:10808'
-git config --global https.proxy 'socks5://127.0.0.1:10808'
+git config --global http.proxy 'socks5://127.0.0.1:1080'
+git config --global https.proxy 'socks5://127.0.0.1:1080'
 ```
 
 3. 配置忽略文件.gitignore，在项目根目录下新建文件.gitignore，内容：
@@ -138,6 +138,15 @@ git commit -m ''
 1. 查看标签： git tag
 2. 打上标签： git tag v1.0
 
+3. 列出所有tag
+```
+git tag //默认显示
+git tag -l
+git tag -n //查看所有tag和说明
+git tag -l v1.* //查看匹配到的tag
+git ls-remote --tags origin //查看远程所有tag
+```
+
 
 ## 生成zip代码发布压缩包
 1. 命令： git archive master --prefix='test/' --forma=zip > test.zip
@@ -237,7 +246,33 @@ git push -u origin master -f
 git checkout -b 本地分支名 origin/远程分支名
 ```
 
+
+8. 合并提交记录
+git rebase -i asdfasd
+编辑vim并保存
+修改提交消息
+
+9. 将某一段commit粘贴到另一个分支上
+
+
+
+10. 假设我想将我的linux分支内容替换master分支的内容。
+```
+# 切换到master分支
+git checkout master
+# 再将本地的master分支重置成linux
+git reset --hard uat  
+# 最后推送到远程仓库master分支
+git push origin master --force 
+```
+
+
+
 问题： 更新远程仓库，并解决冲突
+
+
+
+
 
 
 ## git开发流程
@@ -246,10 +281,14 @@ git checkout -b 本地分支名 origin/远程分支名
 2. 如果你要基于bbs分支开发，那么你需要先基于bbs创建一个新的分支bbs2
 3. 当你基于bbs做了一些提交之后，你想push到远程仓库，你可以先切换到bbs分支，pull代码，防止别个有新的提交，如果有新的提交，先rebase bbs2分支，然后切换到bbs分支，合并bbs2分支到bbs分支
 
+## git升级
+方式1：
+ 去官网[https://git-scm.com/downloads]下载新的安装包覆盖安装，不过这样比较麻烦，而且每次还要去看看有没有新版本
 
-
-
-
+方式2：
+```
+git update-git-for-windows
+```
 
 
 

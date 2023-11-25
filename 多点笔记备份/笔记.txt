@@ -1,0 +1,73 @@
+
+
+## 项目中的自定义配置中心：
+使用方式：@Import(AdmiralSpringbootConfigurationInitializer.class)
+
+```
+# 配置中心
+##是否启用配置中心
+dmall.admiral.enabled=true
+dmall.admiral.appName=dmall-new-price-tag-man
+dmall.admiral.appKey=A31F418ABC9A2AC3F3682FF1B6508219510FFFCF351A253FC412A65559942C65
+dmall.admiral.secretKey=cbb14862abb439ab33c4bca2
+dmall.admiral.serverHttpAddress=meta.admiral.api.inner-dmall.com
+```
+
+
+{
+	"clientId": "10.12.198.160:1689734015dmall-new-price-tag-man",
+	"authorizationKey": "FF6CF06170281695DD4B84E2AD8BCFB0D89EA7EF6356B52D88D552A031070DAF64EEE5449A2493B927EAAF3ECB279F56DED1AE346442E3A0447F5FB91F0686326F4CB88B6F5A9A259ADD7577F59D20A1",
+	"appName": "dmall-new-price-tag-man",
+	"env": "dev"
+}
+
+
+## 消息中心
+
+```
+#消息中心
+dmall.dmg.enable=true
+dmall.dmg.secretKey=1DACED49-902D-4BDA-8230-D6F7B5A4141F
+dmall.dmg.serverAddr=devamp.dmg.inner-dmall.com.hk
+dmall.dmg.authTimeout=5000
+```
+
+```
+dmall.dmg.rocket.consumers[1].topics[0]=rkt_shop_ware_info_change_hk_dev
+dmall.dmg.rocket.consumers[1].group=group_dmall_new_price_tag_man
+dmall.dmg.rocket.consumers[1].message-handler=com.dmall.pricetag.man.consumers.WareInfoChangeMessageConsumer
+```
+
+
+## 日志
+
+打印sql：
+```
+#关键部分。用来显示sql
+mybatis-plus.configuration.log-impl=org.apache.ibatis.logging.stdout.StdOutImpl
+mybatis-plus.logging.level=info
+
+<logger name="com.baomidou" level="DEBUG"/>
+```
+
+
+
+ddc（调度系统）
+dmc（监控系统）
+dlc（日志系统）
+dsf（服务平台）
+dmg（消息系统）
+admiral（配置中心）
+
+
+dmc配置：
+系统应用-运行详情
+
+http://dfdevtestpartner.dmall.com.hk/?debug-rdp_mobile=http://local.dmall.com:3000/#index/rdp_mobile/mobile/list
+
+http://dfdevtestpartner.dmall.com.hk/?debug-rdp_statistics_df=http://local.dmall.com:3000/#index/rdp_statistics/receiptReport
+
+
+
+
+--spring.profiles.active=dev

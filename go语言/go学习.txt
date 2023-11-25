@@ -1,0 +1,161 @@
+
+go env -w GOPROXY=xxxx
+
+go mod init 模块名
+
+go get 依赖模块
+
+go mod edit -replace=现在的版本=要替换的版本
+
+
+web框架
+微服务框架
+tcp长链接
+容器 swarm
+
+
+## 数组
+
+每个数组len、cap两个属性，len表示以写数据指针，cap表示数组的长度
+
+arr[:0] 表示将数组的长度len设置为0
+
+
+## bytes.Buffer
+
+cap(buf) >= len(buf) >= off
+
+               off            len(buf)        cap(buf)
+|------------------------------------------------
+|已读部分       | 未读部分      | 空闲部分      |                                        |
+|_______________|_______________|_______________|
+
+
+
+
+
+
+## 问题：
+1. go语言中引入了goroutine，java中使用线程池是为了减少频繁创建线程的开销，那么go中还适合使用线程池吗？
+
+2. go有多路复用器吗？
+
+
+
+
+
+
+
+
+
+
+------------------
+config.go
+
+jsonem.go init()注册core.ConfigFormat
+
+
+
+-config F:\go_dev\v2ray-core\config.json
+
+
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $HOME/v2ray.exe -trimpath -ldflags "-s -w -buildid=" ./main
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $HOME/wv2ray.exe -trimpath -ldflags "-s -w -H windowsgui -buildid=" ./main
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $HOME/v2ctl.exe -trimpath -ldflags "-s -w -buildid=" -tags confonly ./infra/control/main
+
+
+
+
+
+interface Server{
+
+}
+
+
+interface Client{
+
+}
+
+
+
+本地 -> 服务端
+	server: socks5  或者 direct
+	client: vmess	或者 tcp
+
+服务端 -> 目标地址
+	server: vmess	或者 socks5
+	client: direct	或者 direct
+
+main(
+	读取配置文件
+	Server()
+	
+	监听server端口
+	
+	conn = server.accept()
+		
+	client = client()
+	
+	copy(conn.rw, client.rw)
+	copy(client.rw, conn.rw)
+)
+
+
+socks5读取  ->  vmessClient写入(加密)  ||||   ->  vmessServer读取(解密) ---> direct写入
+
+direct读取 ->  vmessServer写入(加密)         ||||   -> vmessClient读取(解密)  -->  socket写入
+
+
+vmess协议
+
+
+
+
+request{
+	magic = v2ray
+	userId
+	version
+	encrypt_key
+	address_type
+	address
+	port
+}
+
+content{
+	length
+	data
+}
+
+
+
+
+vmess://ew0KICAidiI6ICIyIiwNCiAgInBzIjogImlwXzIwNy4yNDYuMTA4LjM2IiwNCiAgImFkZCI6ICIyMDcuMjQ2LjEwOC4zNiIsDQogICJwb3J0IjogIjgwODAiLA0KICAiaWQiOiAiYWRkZjIxM2EtZTAxZi00ZmE3LWFkMDEtMzZmYzE1ZTk3ZGY4IiwNCiAgImFpZCI6ICIwIiwNCiAgIm5ldCI6ICJrY3AiLA0KICAidHlwZSI6ICJkdGxzIiwNCiAgImhvc3QiOiAiIiwNCiAgInBhdGgiOiAiIiwNCiAgInRscyI6ICIiDQp9
+
+
+{
+  "v": "2",
+  
+  "ps": "ip_207.246.108.36",
+  "add": "207.246.108.36",
+  "port": "8080",
+  
+  "id": "addf213a-e01f-4fa7-ad01-36fc15e97df8",
+  "aid": "0",
+  "net": "kcp",
+  "type": "dtls",
+  
+  "host": "",
+  "path": "",
+  "tls": ""
+}
+
+
+11 = 3
+
+
+
+
+
+
+
+
