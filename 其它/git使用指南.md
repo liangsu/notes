@@ -270,8 +270,12 @@ git push origin master --force
 
 问题： 更新远程仓库，并解决冲突
 
+## 统计
 
-
+1. 统计某个作者提交代码行数
+```
+git log --author=<作者> --pretty=tformat: --numstat | awk '{ add += $1 - $2 } END { printf "Total Lines: %s\n", add }'
+```
 
 
 
@@ -290,10 +294,19 @@ git push origin master --force
 git update-git-for-windows
 ```
 
+## git秘钥
 
+1. 生成秘钥
+```
+ssh-keygen -t rsa -C 邮箱
+```
 
+2. 查看秘钥
+```
+cd ~/.ssh
 
-
+cat id_rsa.pub
+```
 
 
 
